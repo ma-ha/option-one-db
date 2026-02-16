@@ -1,0 +1,551 @@
+
+:root {
+  --main-bg-color: #353131;
+  --main-color: #e2e2e2;
+  --header-bg-color: #222222;
+  --footer-bg-color: #222222;
+  --footer-color: #aaaaaa;
+  --footer-link-color: #aaaaaa;
+  --footer-link-active-color: #aaaaaa;
+  --theme-color: #178cbb;
+  --menu-bg-color: #444444;
+  --menu-bg-active-color: #01699b;
+  --menu-bg-hover-color: #01699b;
+  --menu-color: #ffffff;
+  --link-color: #7b93e1;
+  --link-active-color: #9eaee0;
+  --content-h-bg-color: #81c3e8;
+}
+html {
+  background-color: var(--main-bg-color);
+}
+
+body {
+ background-color: var(--main-bg-color);
+ color: var(--main-color);
+}
+
+#headerdiv, #header  {
+  background-color: var(--header-bg-color);
+}
+#header .header-links {
+  position: absolute;
+  top: 53px;
+}
+
+#footerdiv, #footer  {
+  background-color: var(--footer-bg-color);
+}
+
+#WikiContent,
+#aboutContent{
+  color:  var(--main-color);
+}
+
+.header-logo h1,
+#WikiContent h1,
+.pong-markdown h1,
+.pong-markdown h2,
+.pong-markdown h3,
+.pong-markdown h4,
+.pong-markdown b,
+#aboutContent h1,
+#referencesContent h1,
+#WikiContent b,
+#aboutContent b,
+#referencesContent b,
+#DocuContent a:link,
+#DocuContent a:visited,
+.note .add,
+.slogan b
+{ 
+   color: var(--theme-color);
+}
+
+.pongNavBarItem,
+#SecurityHeaderPullDown
+{
+   background-color: var(--menu-bg-color);
+}
+
+.pongNavBarPullDownItem {
+  background-color:var(--menu-bg-color);
+}
+
+.SecurityHeaderPullDownItem:hover,
+#SecurityHeader:hover,
+.pongNavBarItem:hover,
+.pongNavBarPullDownItem:hover {
+  background-color:var(--menu-bg-hover-color);
+}
+
+
+#DocuContent h1,
+#DocuContent h2,
+#DocuContent h3,
+#DocuContent h4,
+.main-page-head,
+.planName,
+.pongNavBarItemInfo,
+#teaserFreeHead, 
+#teaserWhyHead, 
+.teaserUseCaseHead {
+  background-color: var(--content-h-bg-color);
+}
+
+a:link,
+a:visited,
+a:hover {
+  color: var(--link-color);
+}
+#Wiki a:hover {
+  color: var(--link-active-color);
+}
+
+.pongNavBarItemActive {
+  background-color: var(--menu-bg-active-color);
+  opacity:1;
+}
+
+#header .pong-navbar a:link,
+#SecurityHeader,
+#header a:link, #header a:visited,
+#header .pong-navbar a:link ,
+#header .pong-navbar a:visited,
+#header .pongNavBarItem a:hover,
+.PongUserPage {
+  color: var(--menu-color);
+}
+
+#footer  a:link, 
+#footer a:visited   {
+  color: var(--footer-link-color);
+}
+
+#footer a:hover  {
+  color: var(--footer-link-active-color);
+}
+#footer .copyright-div  {
+  color: var(--footer-color);
+}
+
+/* main */
+
+.header-logo {
+  padding-left: 13px;
+}
+.header-logo h1 {
+  margin-top: 5px; 
+}
+
+.pong-navbar {
+  width: 100%;
+}
+
+.pongNavBarItem {
+  width: 120px;
+  height: 24px;
+  border-radius: 3px;
+  text-decoration: none;
+  line-height: 24px;
+  transition: 0.35s;
+  cursor: pointer;
+}
+#header a:link, #header a:visited {
+  text-decoration: none;
+}
+
+.decor-tm, .decor-bm, .decor-lm, .decor-rm, .decor-tr, .decor-tl, .decor-br, .decor-bl, .decor-menu {
+  background: unset;
+  background-color: #444040;
+} 
+
+button,
+.ui-button,
+input[type=file]::file-selector-button {
+  color: var(--main-color);
+  background: #484646; 
+  background-color: #484646;
+  border-color: #746f6f;
+}
+
+.pongTable td {
+  color: var(--main-color);
+  background-color: #484646;
+}
+.pongTable thead th {
+  color: #76c8e8;
+  background-color: #000;
+}
+
+.treeItem a:link {
+  color: var(--main-color);
+}
+
+.ui-widget-content {
+  color: #b5deef;
+  background-color: #292828
+}
+input:read-only, textarea:read-only {
+  opacity: 0.8 !important;
+  background-color: #413f3f
+}
+#LicenseContent,
+#LicenseHintContent {
+  padding: 20px;
+}
+
+#LicenseContent .markdownNav,
+#LicenseHintContent .markdownNav {
+  display: none;
+}
+
+#footer .footer-links a {
+  padding-right: 15px;
+}
+
+/* data page */
+.pongTree {
+  font-size: 12pt;
+}
+.pong-security {
+  font-size: 14pt;
+}
+.centerimg {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  padding-top: 70px;
+}
+
+.treeDepth0 {
+  padding-top: 15px;
+}
+
+.pongFormActions {
+  margin-top: 5px;
+}
+/*
+
+#AddDbFormContentPongFormFrm p,
+#AddDbFormContentPongFormFrm .pongFormActions,
+#AddDbFormContentPongFormFrm .pongFormInputCol,
+#AddDbFormContentPongFormFrm .pongFormField,
+#AddCollFormContentPongFormFrm p,
+#AddCollFormContentPongFormFrm .pongFormActions,
+#AddCollFormContentPongFormFrm .pongFormInputCol,
+#AddCollFormContentPongFormFrm .pongFormField,
+#collDescContentPongFormFrm .pongFormActions {
+  margin-bottom: 0px;
+  margin-top: 5px;
+  margin-left: 2px;
+  width: 100%;
+  padding-right: 0;
+}
+*/
+#AddDbFormContent,
+#AddCollFormContent,
+#collDescContent {
+  padding-left: 6%;
+}
+
+#AddDbFormContent input,
+#AddCollFormContent,
+#collDescContent,
+#AddCollFormContent input,
+#AddCollFormContent,
+#RestoreFrm input
+{
+  clear: left;
+  display: block;
+  width: 90%;
+}
+
+#MonConfigFrm label,
+#RestoreFrm label {
+  width: 100%
+}
+
+#MonConfigFrmContentotURL {
+  width: 100%;
+}
+.pongFormInputGrp0 {
+  width:auto;
+  float: left;
+}
+
+#AddCollFormContentdbNameDiv label {
+ width: 50px;
+}
+
+#AddDbFormContent   .pongFormField p,
+#AddCollFormContent .pongFormField p,
+#collDescContent    .pongFormField p {
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+#AddDbFormContent .pongFormActions,
+#AddCollFormContent .pongFormActions,
+#collQryContent .pongFormActions,
+#collDescContent .pongFormActions {
+  margin-top: 2px;
+  padding-right: 0;
+}
+#AddDbFormContent .pongFormInputCol,
+#AddCollFormContent .pongFormInputCol,
+#collDescContent .pongFormInputCol {
+  width: 100%;
+}
+
+
+#AddDbFormContentPongFormFrm button,
+#AddCollFormContentPongFormFrm button {
+  float: right;
+  margin-right: 20px;
+}
+#collDescContentPongList .pongListCellname {
+  font-size: 12pt;
+  font-weight: bold;
+}
+#collDescContentPongList .pongListCell {
+  float: unset;
+}
+#collDescContentPongFormFrm {
+  padding-top: 5px;
+}
+
+.pongFormInputdocEditContentGrp0Col0 {
+  width: 100%;
+}
+#docEditContentdoc {
+  width: 95%;
+}
+
+#collDescContent, #col1viewContent, #collDocListContent, #docEditContent, #collQryContent {
+  padding-left: 15px;
+}
+
+#collDesc .pongFormInputGrp0,
+#collQry  .pongFormInputGrp0 {
+  width: 500px;
+  float: left;
+}
+
+#collDescContentname,
+#collQryContentqry,
+#collDescContentpk,
+#collDescContentidx,
+#collQryContentopts {
+  width: 350px;
+}
+
+
+#collDescContent .pongFormActions {
+  width: 130px;
+}
+
+#collDescContentPongFormFrm p {
+  margin-top: 0px;
+  margin-bottom: 0px;
+}
+
+
+#collDescContentBtDelColl,
+#collQryContentBtQryBtn {
+  margin-top: 7px;
+}
+
+#collQryContentqryDiv p,
+#collQryContentoptsDiv p,
+#AddBackupFrm p {
+  margin-top: 7px;
+  margin-bottom: 0px;
+}
+
+.collDocListContentC0 .ui-button-text {
+  display: none;
+}
+#collDocList button {
+  padding-top:    0.2em;
+  padding-bottom: 0.2em;
+  padding-left:   0.2em;
+  padding-right:  0.2em;
+}
+
+#collDocListContentPagin {
+  position: absolute;
+}
+
+/*------------------------------------------*/
+#docEditContent .pongFormInputGrp0,
+#docAddContent .pongFormInputGrp0 {
+  width: 100%;
+}
+#docEditContent input {
+  clear: left;
+  display: block;
+  width: 95%;
+}
+
+#docEditContent textarea {
+  clear: left;
+  display: block;
+}
+
+#docEditContent .pongFormField p {
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+
+/* add doc*/
+#docAddContent {
+  padding-left: 3%;
+}
+
+#docAddContent textarea {
+  clear: left;
+  display: block;
+}
+
+#docAddContentdocDiv label {
+  display: none;
+}
+#docAddContentdocDiv p {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.pongFormInputdocAddContentGrp0Col0 {
+  width: 100%;
+  padding-right: 0;
+}
+#docAddContentdoc {
+  width: 95%;
+}
+
+
+#docAddContent .pongFormActions {
+  display: block;
+  float: left;
+  margin-top: 0;
+}
+
+.UploadForm {
+  margin: 7px;
+}
+
+#docUploadContentsep label {
+  float: left;
+  width: auto;
+  margin-right: 10px;
+}
+#inputdocUploadContentsep {
+  width: 30px;
+}
+/* user page */
+
+
+/* wiki */
+
+#Wiki pre {
+  background-color: #222;
+  color: lime;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  padding-left: 12px;
+}
+
+#Wiki table td {
+  color: var(--main-color);
+  background-color: #484646;
+  padding-right: 5px;
+  padding-left: 5px;
+}
+#Wiki table th {
+  color: var(--theme-color);
+  background-color: #000;
+  padding-right: 5px;
+  padding-left: 5px;
+}
+
+#Wiki a:link,
+#Wiki a:visited,
+#Wiki a:hover {
+  color: var(--link-color);
+}
+#Wiki a:hover {
+  color: var(--link-active-color);
+}
+
+
+/* cluster ststs */
+
+#ClusterLst .pongListRow {
+  width: 350px;
+  height: auto;
+  float: left;
+  margin: 5px;
+  background-color: rgb(62, 60, 60);
+}
+
+#ClusterLst .pongListCellPod,
+#ClusterLst .pongListCellStatus,
+#ClusterLst .pongListCellTokens {
+  width : 15%;
+  padding-left: 5%;
+}
+
+#ClusterLst .pongListCellpodName,
+#ClusterLst .pongListCellstatus,
+#ClusterLst .pongListCelltokens {
+  width : 65%
+}
+#ClusterLst .pongListCellpodName {
+  font-size: 1.1em;
+  font-weight: bold;
+
+}
+
+/* user admin */
+
+#userAdminTbl button {
+  width: 125px;
+}
+
+#addUserContentPongFormFrm {
+  padding-left: 10px;
+}
+#addUserContentuserDiv,
+#addUserContentpasswordDiv,
+#addUserContentemailDiv {
+  float: left;
+  margin-right: 40px;
+}
+#addUserContentPongFormFrm label {
+  width: 75px;
+}
+#addUserContenthintDiv {
+  margin-left: 20px;
+  font-style: italic;
+}
+
+/* db metric */
+#DbLst .pongListRow {
+  width: 300px;
+  height: 190px;
+  float: left;
+}
+.pongListCellXdb {
+  width: 100%;
+}
+
+#ClusterLst .pongListRow {
+  width: 400px;
+  height: 205x;
+  float: left;
+}
+#ClusterLst .pongListCellXUsage,
+#ClusterLst .pongListCellXUsage .pongListCell {
+  width: 98%;
+}
+

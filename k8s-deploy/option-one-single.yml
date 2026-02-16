@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: option-one-db-single
+  namespace: db-single
+spec:
+  selector:
+    matchLabels:
+      app: option-one-db-single
+  serviceName: "option-one-db-single"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: option-one-db-single
+    spec:
+      containers:
+        - name: option-one-db-single
+          image: mahade70/option-one-db:0.6-single
+          env:
+            - name: DB_POD_NAME
+              value: "test-db"
+            - name: API_PATH
+              value: "/option-one-db-single"
+            - name: APP_NAME
+              value: "Option-One DB / Single Node"
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - name: single-db
+              mountPath: /db
+  volumeClaimTemplates:
+    - metadata:
+        name: single-db
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "csi-rbd-sc"
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: option-one-db-single
+  namespace: db-single
+  labels:
+    app: option-one-db-single
+spec:
+  type: ClusterIP
+  selector:
+    app: option-one-db-single
+  ports:
+  - name: http
+    port: 80
+    targetPort: 9000
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: option-one-db-single
+  namespace: db-single
+spec:
+  parentRefs:
+  - name: my-gateway
+    namespace: default
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /option-one-db-single
+    backendRefs:
+    - name: option-one-db-single
+      port: 80

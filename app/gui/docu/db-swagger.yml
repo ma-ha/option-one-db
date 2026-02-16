@@ -1,0 +1,576 @@
+openapi: 3.1.0
+info:
+  title: Option One DB API
+  version: 0.6.0
+
+  description: |-
+    Option One DB API
+
+    [GitHub](https://github.com/ma-ha)
+
+  license:
+    name: MIT
+
+servers:
+  - url: https://localhost:9000/db
+
+security:
+  - api_key:
+      - write:data
+
+tags:
+  - name: db
+    description: Data 
+    externalDocs:
+      description: Find out more
+      url: http://swagger.io
+  - name: admin
+    description: DB Administraion
+    externalDocs:
+      description: Find out more about our store
+      url: http://swagger.io
+
+paths:
+  /db:
+
+    get:
+      tags:
+        - db
+      summary: List databases
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+    
+    post:
+      tags:
+        - admin
+      summary: Create database
+      requestBody: 
+        content: 
+          application/json: 
+            schema: 
+              type: object
+              properties: 
+                name: 
+                  type: string
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+
+  /db/{db}:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string
+
+    post:
+      tags:
+        - db
+      summary: Create collection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreCollection'
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+
+    get:
+      tags:
+        - db
+      summary: List collections
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+
+    delete:
+      tags:
+        - admin
+      summary: Delete database
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+
+  /db/{db}/{coll}:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string
+      - name: coll
+        in: path
+        description: Collection name
+        required: true
+        schema:
+          type: string
+    
+    post:
+      tags:
+        - db
+      summary: Insert one or many documents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '202':
+          description: Acceptes
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+    get:
+      tags:
+        - db
+      summary: Find documents
+      parameters:
+        - name: query
+          in: query
+          description: Filter
+          required: false
+          schema:
+            type: object
+            examples: 
+              - '{"abc.z": { "$ge": 0.5 }}}'
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+    put:
+      tags:
+        - db
+      summary: Update document
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+    delete:
+      tags:
+        - db
+      summary: Delete documents
+      parameters:
+        - name: query
+          in: query
+          description: Filter
+          required: false
+          schema:
+            type: object
+            examples: 
+              - '{"abc.z": { "$ge": 0.5 }}}'
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /db/{db}/{coll}/count:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string      
+      - name: coll
+        in: path
+        description: Collection name
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - db
+      summary: Count documents in collection.
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /db/{db}/{coll}/index:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string      
+      - name: coll
+        in: path
+        description: Collection name
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags:
+        - db
+      summary: Get collection index
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+
+  /db/{db}/{coll}/index/{field}:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string
+      - name: coll
+        in: path
+        description: Collection name
+        required: true
+        schema:
+          type: string
+      - name: field
+        in: path
+        description: Field name
+        required: true
+        schema:
+          type: string
+
+    post:
+      tags:
+        - db
+      summary: Create index
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '500':
+          description: Server error
+
+    delete:
+      tags:
+        - db
+      summary: Drop index
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '500':
+          description: Server error
+
+  /db/{db}/{coll}/{id}:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string      
+      - name: coll
+        in: path
+        description: Collection name
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        description: Document id
+        required: true
+        schema:
+          type: string
+    
+    get:
+      tags:
+        - db
+      summary: Get documents by id
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+    put:
+      tags:
+        - db
+      summary: Replace document
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /log:
+
+    get:
+      tags:
+        - admin
+      summary: Get warning and error logs
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /db/{db}/backup:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string      
+    
+    post:
+      tags:
+        - admin
+      summary: Create a backup of all databases
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /db/{db}/{coll}/backup:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string      
+      - name: coll
+        in: path
+        description: Collection name
+        required: true
+        schema:
+          type: string
+
+    post:
+      tags:
+        - admin
+      summary: Create a backup of all databases
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /restore:
+
+    post:
+      tags:
+        - admin
+      summary: Restore a backup
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /backup-schedule:
+
+    post:
+      tags:
+        - admin
+      summary: Add a backup schedule
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+    get:
+      tags:
+        - admin
+      summary: Listbackup schedules
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+    delete:
+      tags:
+        - admin
+      summary: Delete a backup schedule
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /cluster/node:
+    post:
+      tags:
+        - admin
+      summary: Add new database node to cluster
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '500':
+          description: Server error
+
+components:
+  schemas:
+    CreCollection:
+      type: object
+      properties:
+        collection:
+          type: string
+          examples: 
+            - "test-collection"
+  requestBodies:
+    CreCollection:
+      description: Create collection
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreCollection'
+  securitySchemes:
+    api_key:
+      type: apiKey
+      name: api_key
+      in: header
+

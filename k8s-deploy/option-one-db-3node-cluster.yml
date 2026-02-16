@@ -1,0 +1,76 @@
+# TODO
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: option-one-db
+spec:
+  selector:
+    matchLabels:
+      app: option-one-db
+  serviceName: "option-one-db"
+  replicas: 3
+  minReadySeconds: $MIN_READY_SECS
+  template:
+    metadata:
+      labels:
+        app: option-one-db
+    spec:
+      containers:
+        - name: option-one-db
+          image: ${REGISTRY}/option-one-db:${VERSION}
+          env:
+            - name: API_PATH
+              value: "/option-one-db"
+            - name: RMQ_URL
+              value: "$RMQ_URL"
+            - name: ADMIN_PWD
+              value: "$ADMIN_PWD"
+            # - name: LOG_SYNC
+            #   value: "TRUE"
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - name: option-one-db
+              mountPath: /db
+  volumeClaimTemplates:
+    - metadata:
+        name: option-one-db
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "csi-rbd-sc"
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: option-one-db
+  labels:
+    app: option-one-db
+spec:
+  type: ClusterIP
+  selector:
+    app: option-one-db
+  ports:
+  - name: http
+    port: 80
+    targetPort: 9000
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: option-one-db
+spec:
+  parentRefs:
+  - name: my-gateway
+    namespace: default
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /option-one-db
+    backendRefs:
+    - name: option-one-db
+      port: 80
