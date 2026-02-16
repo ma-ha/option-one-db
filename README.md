@@ -2,10 +2,10 @@
 
 Option One DB is the next generation open source document database:
 - Fast and light weight
-- Scales horizontally 
+- Scales horizontally
   ... but runs as single server on a laptop or even a Raspberry Pi
 - Optimized to run in a container and Kubernetes
-- Powerful indexing and query engine
+- Powerful [indexing and query](README-query.md) engine
 - Integrated GUI for administration, monitoring and data access
 - Simple user and API access management
 - Built in backup scheduler
@@ -58,9 +58,9 @@ The initial admin password is in the logs:
 
 Open http://${K8S-GATEWAY-IP}/option-one-db and log in.
 
-Remark: 
-
 ## JS SDK usage example
+
+See https://github.com/ma-ha/option-one-db-js-sdk
 
 ```JS 
 const { DbClient } = require( 'option-one-db' )
@@ -78,8 +78,6 @@ for ( let doc of docArray ) {
   console.log( doc )
 }
 ```
-
-See https://github.com/ma-ha/option-one-db-js-sdk
 
 ## Document Collection Modes
 
@@ -110,8 +108,7 @@ The config parameters can be passed
 1. in the `initDB( params )` as properties of the `parms` object or
 2. as environment variables (has priority)
 
-
-| Configuration Param    | Explanation                     | Default Value        |
+| Parameter              | Explanation                     | Default Value        |
 |------------------------|---------------------------------|----------------------|
 | ADMIN_PWD              | "admin" password                | *`undefined`*        |
 | API_PATH               | Path for GUI and API URL        | `"/db"`              |
@@ -194,4 +191,4 @@ If you need
 - a version with **special features**
  - you plan to offer the Option One DB as a **hosted or managed service**?
 
-Don't hesitate to contact me: admin at mh-svr.de
+Do not hesitate to contact me: admin at mh-svr.de

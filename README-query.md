@@ -148,5 +148,3 @@ The `date` field defines the expiry date. The value can be
 - epoch time value (ms since 1970)
 - Date
 - String containing a (parsable) date
-
-[[main.md|Back to main page]]
