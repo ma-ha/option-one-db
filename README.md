@@ -60,10 +60,6 @@ Open http://${K8S-GATEWAY-IP}/option-one-db and log in.
 
 Remark: 
 
-## Get DB as a Service
-
-We offer to test the DB online: https://option-one-db.online-service.cloud
-
 ## JS SDK usage example
 
 ```JS 
@@ -83,7 +79,7 @@ for ( let doc of docArray ) {
 }
 ```
 
-Details: See API reference
+See https://github.com/ma-ha/option-one-db-js-sdk
 
 ## Document Collection Modes
 
