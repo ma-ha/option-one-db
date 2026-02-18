@@ -18,7 +18,9 @@ Status: EXPERIMENTAL -- use at your own risk!!
 
 Run the server as docker container locally
 
-    docker run -d --name option_one_db  -p 9000:9000  -e DB_POD_NAME='my-db' -v /home/my-user/db/:/option-one/db/ -v /home/my-user/backup:/option-one/backup/ mahade70/option-one-db:0.8-single
+```bash
+docker run -d --name "option_one_db"  -p 9000:9000  -e DB_POD_NAME='my-db' -v /home/my-user/db/:/option-one/db/ -v /home/my-user/backup:/option-one/backup/ mahade70/option-one-db:0.8-single
+```
 
 (This creates the folder `/home/my-user/db` and `/home/my-user/backup` if they are not existing.)
 
@@ -36,22 +38,24 @@ Check out the GitLab repo how to run the server as NodeJS process without docker
 
 Set up a RabbitMQ for the pod-to-pod communication: See https://www.rabbitmq.com/kubernetes/operator/quickstart-operator, login to the admin GUI and create a user and grant access to  `/` virtual hosts.
 
-    RMQ_USER=rabbitmq_username
-    RMQ_PWD=rabbitmq_password
-    RMQ_NAMESPACE=parbbritmq_namespace
-    export RMQ_URL="amqp://${RMQ_USER}:${RMQ_PWD}@rabbitmq.${RMQ_NAMESPACE}"
-
+```bash
+RMQ_USER="rabbitmq_username"
+RMQ_PWD="rabbitmq_password"
+RMQ_NAMESPACE="rabbritmq_namespace"
+export RMQ_URL="amqp://${RMQ_USER}:${RMQ_PWD}@rabbitmq.${RMQ_NAMESPACE}"
+```
 This will also deploy a RabbitMQ and three database pods. 
 You can scale the cluster any time later. 
 
-    kubectl create namespace db
-    export REGISTRY="mahade70"
-    export ADMIN_PWD="super-secret-password"
-    export MIN_READY_SECS=5  # for a rolling updates this should be higher, e.g. 60
-    export VERSION="0.8"
-    wget https://raw.githubusercontent.com/ma-ha/option-one-db/master/k8s-deploy/option-one-db-3node-cluster.yml
-    cat option-one-db-3node-cluster.yml | envsubst | kubectl apply -n db -f -
-
+```bash
+kubectl create namespace db
+export REGISTRY="mahade70"
+export ADMIN_PWD="super-secret-password"
+export MIN_READY_SECS=5  # for a rolling updates this should be higher, e.g. 60
+export VERSION="0.8"
+wget https://raw.githubusercontent.com/ma-ha/option-one-db/master/k8s-deploy/option-one-db-3node-cluster.yml
+cat option-one-db-3node-cluster.yml | envsubst | kubectl apply -n db -f -
+```
 The initial admin password is in the logs:
 
     kubectl logs -n db option-one-db-0 -f
@@ -60,7 +64,7 @@ Open http://${K8S-GATEWAY-IP}/option-one-db and log in.
 
 ## JS SDK usage example
 
-See https://github.com/ma-ha/option-one-db-js-sdk
+This [JS SDK npm package](https://www.npmjs.com/package/option-one-db) is a wrapper for the Option One DB [REST API](https://github.com/ma-ha/option-one-db/blob/master/app/gui/docu/db-swagger.yml).  
 
 ```JS 
 const { DbClient } = require( 'option-one-db' )
@@ -78,6 +82,9 @@ for ( let doc of docArray ) {
   console.log( doc )
 }
 ```
+
+Check out the [API Reference](https://github.com/ma-ha/option-one-db-js-sdk/blob/master/README-SDK.md).
+
 
 ## Document Collection Modes
 
@@ -151,13 +158,13 @@ Important: Currently it is not supported to extend a single node db to a cluster
 ## Max Cluster Size: Default is 16 Pods
 
 The maximum cluster pod count is defined by the TOKEN_LEN:
-- export TOKEN_LEN=1 
+- `export TOKEN_LEN=1`
   to set the max. DB pods count to 16 (= default)
-- export TOKEN_LEN=2
+- `export TOKEN_LEN=2`
   to set the max. DB pods count to 256
-- export TOKEN_LEN=3 
+- `export TOKEN_LEN=3`
   to set the max. DB pods count to 4095
-- export TOKEN_LEN=4 
+- `export TOKEN_LEN=4`
   to set the max. DB pods count to 65535
 
 A larger TOKEN_LEN also comes with more internal overhead - 
