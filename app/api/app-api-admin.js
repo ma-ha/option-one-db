@@ -40,7 +40,7 @@ function init( configParams ) {
 async function getUser( req, res ) {
   let txnId = db.getTxnId( 'USR' )
   try {
-    log.info( txnId, 'API getUser...' ) 
+    log.debug( txnId, 'API getUser...' ) 
     let result = []
     let dbArr   = await db.listDBs(  )
     let userArr = await db.listUserRights()
@@ -248,9 +248,11 @@ async function getSP( req, res ) {
               delApp = false
             }
           }
+          let dbName =  sp.db
+          if ( dbName == 'all_' ) { dbName = '*' }
           result.push({ 
             id      : sp._id, 
-            db      : sp.db, 
+            db      : dbName, 
             accId   : sp.db +'/'+ sp._id,
             app     : sp.appName, 
             expires : expires, 
@@ -273,8 +275,16 @@ async function addSP( req, res ) {
   try {
     log.info( 'API addSP...',  req.body ) 
     if ( ! req.body.db ) { return res.send('DB param required') }
-    let dbDetails = await db.getDB( req.body.db ) 
-    if ( ! dbDetails ) { return res.send('DB not found') }
+    let dbName = req.body.db
+    if ( req.body.db == '*' ) {
+      if ( ! req.xUserAuthz['admin'] ) {
+        if ( ! dbDetails ) { return res.send('Not authorized!') }  
+      }
+      dbName = 'all_'
+    } else {
+      let dbDetails = await db.getDB( req.body.db ) 
+      if ( ! dbDetails ) { return res.send('DB not found') }  
+    }
     if ( ! req.body.app ) { return res.send('App name required') }
     if ( ! req.body.access || ! ( req.body.access == "Database API" || req.body.access == "Admin API" ) ) { 
       return res.send('Access type must be "Database API" or "Admin API"') 
@@ -291,7 +301,7 @@ async function addSP( req, res ) {
 
     let newSP = {
       _id     : spId,
-      db      : req.body.db,
+      db      : dbName,
       appName : req.body.app,
       keyHash : await db.getPkID( key ),
       access  : req.body.access,
@@ -302,9 +312,9 @@ async function addSP( req, res ) {
     if ( result._error ) {
       return res.send( 'Failed ' + result._error )
     }
-    db.addAuditLog( req.xUser, 'sp',  req.body.db+'/'+spId, 'Add api access', 'SP.'+spId )
+    db.addAuditLog( req.xUser, 'sp',  dbName+'/'+spId, 'Add api access', 'SP.'+spId )
 
-    return res.send( 'AccessId: '+req.body.db+'/'+spId+'     AccessKey: '+key +'    Please copy this key, it is only shown one time!' )
+    return res.send( 'AccessId: '+dbName+'/'+spId+'     AccessKey: '+key +'    Please copy this key, it is only shown one time!' )
   } catch ( exc ) {
     log.error( txnId, 'addSP', exc )
     res.status( st.SERVER_ERROR ).send( result._error )

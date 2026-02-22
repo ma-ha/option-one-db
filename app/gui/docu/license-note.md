@@ -17,5 +17,5 @@ You plan to offer the Option One DB as a **hosted or managed service**?
 
 Please don't hesitate to contact us: 
 
-admin at mh-svr.de
+admin@mh-svr.de
 

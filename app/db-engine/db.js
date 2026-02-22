@@ -670,7 +670,7 @@ async function persistMetrics() {
           log.debug( 'persistMetrics insertOne', metricsUpd )
           let result = await insertOneDoc( metricsColl, metricsUpd )
           log.info( 'persistMetrics insertOne', result )
-          if ( ! result._error && result.ins._id ) {
+          if ( ! result._error && result.ins?._id ) {
             DB_METRICS_ID[ dbName ] = result  //<<<<<<<<<<<<<<<<<<<<
           }
         } else {

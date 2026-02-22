@@ -4,12 +4,14 @@ Initialize the client:
 
     const { DbClient } = require( 'db-sdk' )
     const client = new DbClient(
-      'http://localhost:9000/db',
+      process.env.DB_URL,
       { accessId: process.env.DB_ACCESS_ID, accessKey: process.env.DB_ACCESS_KEY } 
     )
     await client.connect()
 
-Access keys can be created in the admin portal in "API Access" tab.
+The DB URL is something like `http://localhost:9000/db`.
+
+Access credential can be created in the admin portal in "API Access" tab. If you choose "*" in the database selection, the access is granted to all databases, incl creation of new DBs.
 
 Create or open a DB:
 

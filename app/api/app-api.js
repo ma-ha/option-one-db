@@ -66,9 +66,8 @@ async function init( app, configParams ) {
   svc.post(  '/sp',                       adminChk, admin.addSP )
   svc.delete('/sp',                       adminChk, admin.delSP )
 
-  svc.get(   '/monitoring',                adminChk, admin.getMonitoring )
-  // svc.post(  '/monitoring',                adminChk, admin.saveMonitoring )
-  svc.get(   '/log',                       adminChk, admin.getLogs )
+  svc.get(   '/monitoring',               adminChk, admin.getMonitoring )
+  svc.get(   '/log',                      adminChk, admin.getLogs )
   
   svc.get(  '/admin/user',                adminChk, admin.getUser ) 
   svc.post( '/admin/user',                adminChk, admin.addUser ) 
@@ -96,6 +95,7 @@ async function init( app, configParams ) {
   svc.put(  '/gui/coll',                 secChk, gui.renameColl )
   svc.delete( '/gui/coll',               secChk, gui.delColl )
   svc.get(  '/gui/dbnames',              secChk, gui.getDbNames )
+  svc.get(  '/gui/dbnames/sp',           secChk, gui.getDbNamesSp )
   svc.get(  '/gui/dbnames-all',          secChk, gui.getAllDbNames )
   svc.get(  '/gui/coll/meta',            secChk, gui.getCollMeta )
   svc.get(  '/gui/coll/data',            secChk, gui.getCollData )

@@ -66,6 +66,7 @@ async function newAdminUser() {
   // TODO let user = 'admin_'+ randomChar( 2 )
   let user = 'admin'
   let pwd  = genPasswd()
+  if ( process.env.ADMIN == 'DEV' ) { pwd = 'admin' } // simplify things for DB development
 
   const { createHash } = await import('node:crypto')
   const hash = createHash('sha256')
@@ -199,7 +200,7 @@ function isIdxQuery( query, colSpec ) {
 //=============================================================================
 
 function evalQueryExpr( dtaVal, expression ) {
-  log.info( 'evalQueryExpr', dtaVal, expression )
+  log.debug( 'evalQueryExpr', dtaVal, expression )
   let isIn = false
 
   for ( let comparator in expression ) {

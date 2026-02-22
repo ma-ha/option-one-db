@@ -46,7 +46,7 @@ function addApiSpPage( gui ) {
         fieldGroups: [{
           columns: [
             { formFields: [
-              { id: 'db',     type: 'select', label: 'Database',  optionsResource: { resourceURL: 'gui/dbnames', optionField:'dbName', optionValue:'dbName'} },
+              { id: 'db',     type: 'select', label: 'Database',  optionsResource: { resourceURL: 'gui/dbnames/sp', optionField:'dbName', optionValue:'dbName'} },
               { id: 'app',    type: 'text',   label: 'App Name',  },
               { id: 'access', type: 'select', label: 'Access', 
                 options: [ { option: 'Database API' }, { option: 'Admin API' }] },

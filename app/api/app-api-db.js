@@ -51,6 +51,10 @@ async function createDB( req, res ) {
       return res.status( st.BAD_REQUEST ).send( { _error: '"admin" is a reserved DB name"' } )
     }
 
+    if ( ! req.xUserAuthz[ '*' ] ) {
+      return res.status( st.NOT_AUTHORIZED ).send( { _error: 'Not authorize.' } )
+    }
+
     if ( await db.getDB( req.body.name ) ) {
       return res.status( st.OK ).send( { _ok: 'DB already exists' } )
     }
@@ -199,6 +203,25 @@ async function dropDatabase( req, res ) {
     log.info( jobId, 'DB-API dropDatabase', req.params.db  )
     let mustHave = [ 'params.db' ]
     if ( ! await checkReq( jobId, req, res, 'dropDatabase', mustHave, req.params.db ) ) { return }
+
+    let allSPs = await db.find( 'admin', 'api-access' )
+    if ( allSPs._ok ) {
+      for ( let sp of allSPs.data ) {
+        if ( sp.db ==  req.params.db ) {
+          log.info( jobId, 'delete API access id',  sp.db+'/'+sp._id )
+          let r = { 
+            fn: 'deleteData',
+            db : 'admin', 
+            coll: 'api-access',
+            txnId : jobId,
+            options : {}
+          }
+          await db.deleteOneDoc( r, sp._id )
+          db.addAuditLog( req.xUser, 'db', sp.db+'/'+sp._id, 'Del API access', jobId )  
+        }
+      }
+    }
+
 
     await manageDB.delDB( req.params.db, jobId )
     db.addAuditLog( req.xUser, 'db', req.params.db, 'Drop database', jobId )
@@ -386,6 +409,15 @@ function queryOK( req, res, r ) {
 
 
 async function checkReq( jobId, req, res, fnName, mustHave, dbName, collName ) {
+  // check authorization for dbName
+  if ( ! req.xUserAuthz[ '*' ] ) { 
+    if ( ! req.xUserAuthz[ dbName ] ) { 
+      log.warn( jobId, fnName, req.xUser ,'not authorzed for', dbName )
+      return res.status( st.NOT_AUTHORIZED ).send( { error: 'Not authorized' } ) 
+    }
+  } // ok, authz for all DBs 
+
+  // validate parameters
   for ( let param of mustHave ) {
     if ( ! resolve( req, param ) ) {
       log.warn( jobId, fnName, '"'+param+'" required' )

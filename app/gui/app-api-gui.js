@@ -13,6 +13,7 @@ module.exports = {
 
   getDbTree,
   getDbNames,
+  getDbNamesSp,
   getAllDbNames,
   getCollMeta,
   getCollData,
@@ -284,6 +285,26 @@ async function getDbNames( req, res ) {
         result.push({ dbName: dbName })
       }
     }      
+  } catch ( exc ) {
+    log.warn( 'getDbNames', exc.message )
+  }
+  res.send( result )
+}
+
+async function getDbNamesSp( req, res ) {
+  let txnId = db.getTxnId( 'GUI' )
+  let result = []
+  try {
+    log.debug( txnId, 'Get DB names for SP...', req.xUserAuthz)
+    let dbArr = await db.listDBs( )
+    for ( let dbName of dbArr ) {
+      if ( req.xUserAuthz['*'] || req.xUserAuthz[ dbName ] ) {
+        result.push({ dbName: dbName })
+      }
+    }
+    if ( req.xUserAuthz['admin'] ) {
+      result.push({ dbName: '*' })
+    }
   } catch ( exc ) {
     log.warn( 'getDbNames', exc.message )
   }

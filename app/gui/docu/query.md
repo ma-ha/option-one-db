@@ -1,8 +1,6 @@
 # Query Documents
 
-Queries can be done on any document field or sub-field.
-
-Fastest is retrieval od one document by `_id` or primary key.
+Most fast is retrieval by `_id` or primary key.
 
 Queries on indexed fields help to get a result quickly.
 

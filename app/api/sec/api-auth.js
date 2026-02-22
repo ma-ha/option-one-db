@@ -37,6 +37,7 @@ function initAdminCheck( configParams ) {
       if ( req.headers[ 'accessid'] ) {
         // log.info( 'HDR', req.headers )
         let dbName = req.headers[ 'accessid'].split('/')[0]
+        if ( dbName == 'all_') { dbName = '*' }
         let spId = req.headers[ 'accessid'].split('/')[1]
         let key = req.headers[ 'accesskey']
         let apiAccess = await db.getDocById( 'admin', 'api-access', spId )
@@ -81,12 +82,12 @@ function initAdminCheck( configParams ) {
         return next( new UnauthorizedError(
           'Admin authorization failed', 
           { message: 'Admin authorization failed' }
-        ))  
-
+        ))
       }
-
+    
       req.xUser = user._id
       req.xUserAuthz = user.autz
+
 
       return await next() 
     } catch ( exc ) {
@@ -134,18 +135,27 @@ function initSecCheck( guiApp) {
       }
 
       if ( req.headers[ 'accessid'] ) {
-        // log.info( 'HDR', req.headers )
-        let dbName = req.headers[ 'accessid'].split('/')[0]
-        let spId = req.headers[ 'accessid'].split('/')[1]
-        let key = req.headers[ 'accesskey']
+        log.debug( 'HDR', req.headers )
+        let dbName = req.headers.accessid.split('/')[0]
+        if ( dbName == 'all_') {
+          dbName = '*' 
+        } else {
+          return next( new UnauthorizedError(
+            'accessId/accessKey check failed', 
+            { message: 'accessId/accessKey check failed' }
+          ))
+        }
+        let spId = req.headers.accessid.split('/')[1]
+        let key = req.headers.accesskey
         let apiAccess = await db.getDocById( 'admin', 'api-access', spId )
+        log.debug( 'apiAccess', apiAccess )
         if ( apiAccess?.doc ) {
           let keyHash = await db.getPkID( key )
           log.debug( 'ID', dbName, spId, keyHash, apiAccess?.doc?.keyHash )
           if ( apiAccess?.doc?.keyHash === keyHash ) {
             req.xUserAuthz = {}
             req.xUserAuthz[ dbName ] = 'w'
-            req.xUser = req.headers[ 'accessid']
+            req.xUser = req.headers.accessid
             helper.dbgEnd( 'SecCheck', txnId )
             return await next()
           }
