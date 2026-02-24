@@ -164,7 +164,19 @@ async function listIndexes( req, res )  {
     if ( ! await checkReq( jobId, req, res, 'listIndexes', mustHave, req.params.db, req.params.coll ) ) { return }
 
     let result = await manageDB.listCollIdx( req.params.db, req.params.coll, null ) 
-    res.status( ( result._ok ? st.CREATED : st.SERVER_ERROR ) ).send( result.indexArr )
+    log.info( 'listIndex', result )
+    if ( result._ok ) {
+      let idxArr = {}
+      idxArr[ '_PK' ] = result.primaryKey
+      for ( let idxKey in result.index ) {
+        idxArr[ idxKey ] = result.index[ idxKey ]
+      }
+      res.status( st.CREATED ).send( idxArr )
+    } else {
+      let idxArr = []
+      res.status( st.SERVER_ERROR ).send( result )
+  
+    }
   } catch ( exc ) { sndSendSvrErr( jobId, 'listIndexes', exc, res ) }
 }
 
@@ -276,6 +288,9 @@ async function getBackups( req, res ) {
       backup.restore = restoreOK
       result.push( backup )
     }
+    result.sort( ( a, b ) => {
+      if ( a.date < b.date ) { return 1 } else { return -1 }
+    })
     res.send( result )
   } catch ( exc ) { sndSendSvrErr( jobId, 'getBackups', exc, res ) }
 }

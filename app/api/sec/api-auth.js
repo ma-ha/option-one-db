@@ -36,10 +36,18 @@ function initAdminCheck( configParams ) {
 
       if ( req.headers[ 'accessid'] ) {
         // log.info( 'HDR', req.headers )
-        let dbName = req.headers[ 'accessid'].split('/')[0]
-        if ( dbName == 'all_') { dbName = '*' }
-        let spId = req.headers[ 'accessid'].split('/')[1]
-        let key = req.headers[ 'accesskey']
+        let dbName = req.header.accessid.split('/')[0]
+        if ( dbName == 'all_') {
+          dbName = '*'
+        } else {
+          log.warn( 'Unauthorizated',  )
+          return next( new UnauthorizedError(
+            'accessId/accessKey check failed', 
+            { message: 'accessId/accessKey check failed' }
+          ))
+        }
+        let spId = req.headers.accessid.split('/')[1]
+        let key = req.headers.accessid
         let apiAccess = await db.getDocById( 'admin', 'api-access', spId )
         log.debug( 'apiAccess', apiAccess )
         if ( apiAccess?.doc ) {
@@ -48,7 +56,7 @@ function initAdminCheck( configParams ) {
           if ( apiAccess?.doc?.keyHash === keyHash ) {
             req.xUserAuthz = {}
             req.xUserAuthz[ dbName ] = 'w'
-            req.xUser = req.headers[ 'accessid']
+            req.xUser = req.headers.accessid
             return await next()
           }
         }
@@ -139,11 +147,6 @@ function initSecCheck( guiApp) {
         let dbName = req.headers.accessid.split('/')[0]
         if ( dbName == 'all_') {
           dbName = '*' 
-        } else {
-          return next( new UnauthorizedError(
-            'accessId/accessKey check failed', 
-            { message: 'accessId/accessKey check failed' }
-          ))
         }
         let spId = req.headers.accessid.split('/')[1]
         let key = req.headers.accesskey

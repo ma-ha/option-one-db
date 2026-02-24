@@ -183,7 +183,7 @@ function getValAsIdxStr( doc, idxKey, indexDef ) {
   } else {
     switch ( typeof val ) {
       case 'number':
-        val =  ''+val
+        val =  ( ''+val ).substring( 0, maxLen )
         break
       case 'string':
         val =  val.substring( 0, maxLen )
@@ -335,7 +335,7 @@ async function reIndex( jobId, dbName, collName, idx ) {
       } else {
         switch ( typeof val ) {
           case 'number':
-            addDocId(  indexFile[ idxFileName ], ''+val, doc._id )
+            addDocId(  indexFile[ idxFileName ], ( ''+val ).substring( 0, maxLen[ idxField ] ), doc._id )
             break
           case 'string':
             addDocId(  indexFile[ idxFileName ], val.substring( 0, maxLen[ idxField ] ), doc._id )
@@ -514,6 +514,7 @@ async function syncIndexCacheToFile() {
       try {
         log.debug( 'syncIndexCacheToFile', idxFileName )    
         let idxPath = idxFileName.substring( 0, idxFileName.lastIndexOf('/') )
+        log.debug( 'syncIndexCacheToFile', idxPath )    
         await dbFile.ensureDirExists( idxPath )
         await writeFile( idxFileName, JSON.stringify( IDX_CACHE[ idxFileName ].idx, null, ' ' ) )
         IDX_CACHE[ idxFileName ].needWrite = false

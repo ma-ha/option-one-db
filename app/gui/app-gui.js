@@ -66,8 +66,9 @@ function init( configParams ) {
   ]
   gui.pages['main'].footer.copyrightText =  cfg.APP_NAME + ' v'+pjson.version+ ' &#169; Markus E. Harms 2026'
   gui.pages['main'].addFooterLink( 'License', 'index.html?layout=license-nonav' )
-  gui.pages['main'].addFooterLink( 'Support',  'https://option-one-db.online-service.cloud'  )
-  gui.pages['main'].addFooterLink( 'GitHub',  'https://github.com/ma-ha/'  )
+  gui.pages['main'].addFooterLink( 'GitHub',  'https://github.com/ma-ha/option-one-db/', '_blank' )
+  gui.pages['main'].addFooterLink( 'JS SDK',  'https://www.npmjs.com/package/option-one-db', '_blank' )
+  //gui.pages['main'].addFooterLink( 'Support', 'https://option-one-db.online-service.cloud' )
 
   sec.init( gui )
 

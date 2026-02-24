@@ -1,3 +1,8 @@
+# 0.8.4
+- backup improvements
+- index: msbLen for numbers
+- fix deployment
+
 # 0.8.2
 - SP access for "*" 
 - SP Auth hardening

@@ -665,10 +665,11 @@ async function delColl( jobId, dbName, collName ) {
 // ============================================================================
 
 async function updateIdx( jobId, dbName, collName, idx ) {
-  log.debug( jobId, 'updateIdx', dbName, collName )
+  log.debug( jobId, 'updateIdx', dbName, collName, idx )
   if ( ! db[ dbName ] ) { return { _ok: false } }
   if ( ! db[ dbName ].collection[ collName ] ) { return { _ok: false } }
-  if ( deepEqual( idx, db[ dbName ].collection[ collName ].index ) ) {
+  let idxFrmFile = await dbFile.loadCollIdxMap( dbName, collName )
+  if ( deepEqual( idx, idxFrmFile ) ) {
     return { _ok: true }
   }
   writeOpsOngoing ++

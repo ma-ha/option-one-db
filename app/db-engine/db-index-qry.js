@@ -206,7 +206,7 @@ async function getDocsCompIndex( txnId, dbName, collName, qKey, expr ) {
   let docIDs = []
   let fileArr = fs.readdirSync( idxDir, { withFileTypes: true } )
   for ( let x of fileArr ) {
-    log.info( txnId, 'getDocsCompIndex load', x.name )
+    log.debug( txnId, 'getDocsCompIndex load', x.name )
     if ( x.name.endsWith( '.json' ) ) {
       let idx = JSON.parse( await readFile( idxDir +'/'+ x.name ) )
 
@@ -218,7 +218,7 @@ async function getDocsCompIndex( txnId, dbName, collName, qKey, expr ) {
         }
 
         if ( eval.isIn === true) {
-          log.info( txnId, 'getDocsCompIndex expr ok', idxVal, expr )
+          log.debug( txnId, 'getDocsCompIndex expr ok', idxVal, expr )
           docIDs = docIDs.concat( idx[ idxVal ] )
         }
       }

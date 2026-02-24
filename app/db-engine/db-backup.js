@@ -327,8 +327,6 @@ async function deleteExpiredBackups() {
         )
       }
     }
-
-    
   } catch ( exc ) {
     log.error( 'deleteExpiredBackups', exc )
     

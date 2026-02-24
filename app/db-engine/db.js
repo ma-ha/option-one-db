@@ -663,7 +663,7 @@ async function persistMetrics() {
         db    : 'admin',
         coll  : 'db-metrics'
       }
-      if ( ! DB_METRICS_ID[ dbName ] ) {
+      // if ( ! DB_METRICS_ID[ dbName ] ) {
         let find = await findOneDoc( metricsColl, { db : dbName } )
         // log.info( 'persistMetrics findOneDoc', find  )
         if ( ! find.doc ) {
@@ -689,11 +689,11 @@ async function persistMetrics() {
           let result = await updateOneDoc( metricsColl, { _id: find.doc._id , db: dbName } ) 
           // log.info( 'persistMetrics updateOneDoc', result )
         }
-      }
-      if ( DB_METRICS_ID[ dbName ] ) {
-        metricsUpd._id =  DB_METRICS_ID[ dbName ] //<<<<<<<<<<<<<<<<<<<<
-        await updateOneDoc( metricsColl, metricsUpd ) /// <<<<<<<<<<<<<<< FIX  
-      }
+      // }
+      // if ( DB_METRICS_ID[ dbName ] ) {
+      //   metricsUpd._id =  DB_METRICS_ID[ dbName ] //<<<<<<<<<<<<<<<<<<<<
+      //   await updateOneDoc( metricsColl, metricsUpd ) /// <<<<<<<<<<<<<<< FIX  
+      // }
     }
   } catch ( exc ) { log.error( 'persistMetrics', exc ) }
 }

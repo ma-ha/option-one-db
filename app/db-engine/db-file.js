@@ -20,6 +20,7 @@ module.exports = {
   renameColl,
   delColl,
   delCollIdx,
+  loadCollIdxMap,
 
   creDoc,
   replaceDocByIdPrep,
@@ -732,12 +733,14 @@ async function du( dir ) {
 
 async function purgeBackup( dateStr, dbName, collArr ) {
   log.info( 'purgeBackupDir ...', dateStr, dbName, collArr )
-  let dtStr = dateStr.replaceAll(':','').replaceAll('-','')
-  let bckDir = backupDir + dtStr +'/'+ dbName  
-  log.info( 'purgeBackupDir ...', bckDir )
-  await rm( bckDir, { recursive : true } )
-  // TODO check empty folder
-  log.info( 'purgeBackupDir deleted',bckDir )
+  try {
+    let dtStr = dateStr.replaceAll(':','').replaceAll('-','')
+    let bckDir = backupDir + dtStr +'/'+ dbName  
+    log.info( 'purgeBackupDir ...', bckDir )
+    await rm( bckDir, { recursive : true } )
+    // TODO check empty folder
+    log.info( 'purgeBackupDir deleted',bckDir )
+  } catch ( exc ) { log.warn( 'purgeBackupDir', exc.message) }
 }
 
 //=============================================================================
@@ -826,6 +829,7 @@ async function dirExists( path ) {
 
 
 async function ensureDirExists( folder ) {
+  log.debug( 'ensureDirExists', folder )
   try {
     if ( ! await dirExists( folder ) ) {
       await mkdir( folder, { recursive: true } ) 

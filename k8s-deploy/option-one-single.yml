@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: option-one-db-single
-  namespace: db-single
 spec:
   selector:
     matchLabels:
@@ -16,7 +15,7 @@ spec:
     spec:
       containers:
         - name: option-one-db-single
-          image: mahade70/option-one-db:0.6-single
+          image: ${REGISTRY}/option-one-db:${VERSION}-single
           env:
             - name: DB_POD_NAME
               value: "test-db"
@@ -43,7 +42,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: option-one-db-single
-  namespace: db-single
   labels:
     app: option-one-db-single
 spec:
@@ -60,7 +58,6 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: option-one-db-single
-  namespace: db-single
 spec:
   parentRefs:
   - name: my-gateway
