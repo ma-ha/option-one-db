@@ -257,35 +257,41 @@ async function getBackups( req, res ) {
     }
     for ( let bId in backupById ) {
       let backup = { size: '', status: null }
-      let restoreOK = true
       let backupStats = {}
       let sizeMax = 0
+      let deleted = true
+      let upd = 0
+      let allOk = true
       for ( let podBackup of backupById[ bId ] ) {
         backup.id        = podBackup._id
         backup.date      = podBackup.date
         backup.location  = podBackup.location
         backup.dbName    = podBackup.dbName
+        backup.collName  = podBackup.collName
         backup.retention = podBackup.retention
         backup.date      = podBackup.date
+        if ( podBackup.status != 'ERASED' ) { deleted = false }
+        if ( podBackup.status != 'OK' ) { allOk = false }
         if ( ! backupStats[ podBackup.status ] ) { backupStats[ podBackup.status ] = 0 }
         backupStats[ podBackup.status ] ++
         let size = parseFloat( podBackup.size )
         if ( size != NaN  && size > sizeMax ) {
           sizeMax = size
         }
-        if ( podBackup.status != 'OK ') { restoreOK = false }
+        upd = podBackup._chg
       }
+      // log.info( 'del', deleted, upd )
       backup.size = '~' + sizeMax + ' MB'
       backup.status = ''
       for ( let stat in backupStats ) {
         if ( backup.status != '') {  backup.status += ' / ' }
         backup.status += backupStats[stat] +' x '+ stat 
       }
-      if ( backup.status.indexOf('ERASED') >= 0 ) {
+      if ( ! allOk ) {
         backup.size = ''
-        backup.restore = false
+      } else {
+        backup.restore = '<a href="index.html?layout=restorePage-nonav&id='+ backup.id+'">Restore</a>'
       }
-      backup.restore = restoreOK
       result.push( backup )
     }
     result.sort( ( a, b ) => {

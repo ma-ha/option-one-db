@@ -74,8 +74,10 @@ const dbCredentials = {
 } 
 const client = new DbClient( process.env.DB_URL, dbCredentials )
 await client.connect()
+
 const db = await client.db( 'test-db' )
 let myAwesomeDocs = await db.collection( 'my-awesome-docs' )
+
 let cursor = myAwesomeDocs.find({ name: 'Moe' })
 let docArray = await cursor.toArray()
 for ( let doc of docArray ) {

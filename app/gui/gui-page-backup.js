@@ -90,8 +90,9 @@ function addBackupPage( gui ) {
       { id: "size",     label: "Size",        cellType: "text", width: "7%" },
       { id: "retention",label: "Retention",   cellType: "text", width: "5%" },
       { id: "status",   label: "Status",      cellType: "text", width: "15%" },
-      { id: "restore",  label: "Restore", cellType: "link", target: "_parent", 
-        URL:"index.html?layout=restorePage-nonav",  width:"10%" }
+      { id: "restore",  label: "",      cellType: "text", width: "10%" }
+      // { id: "restore",  label: "Restore", cellType: "link", target: "_parent", 
+      //   URL:"index.html?layout=restorePage-nonav",  width:"10%" }
     ]
 
     pageCols.push({

@@ -1,3 +1,7 @@
+# 0.8.5
+- backup GUI: restore links only for OK
+- delete old backups from DB
+
 # 0.8.4
 - backup improvements
 - index: msbLen for numbers

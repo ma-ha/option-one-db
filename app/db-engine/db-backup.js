@@ -32,7 +32,7 @@ async function init( nodeId = '' ) {
       startSchedule( schedule )
     }
     setInterval( deleteExpiredBackups, 3*60*60000 ) // schedule every 3 h
-    setTimeout(  deleteExpiredBackups, 55000 )      // clean up 1 min init
+    setTimeout(  deleteExpiredBackups, 5000 )      // clean up 1 min init
   } catch ( exc ) {
     log.error( 'BACKUP init', exc )
   }
@@ -106,11 +106,11 @@ async function collBackupArr( dbName, collName )  {
 
 async function addStartRec( dateStr, backup, collName, collArr ) {
   try {
-    let backupId = ( backup._id ? backup._id : 'EXEC') + dateStr.replaceAll('-','').replaceAll('T','').replaceAll(':','')
+    let backupId = ( backup._id ? backup._id : 'exec') + dateStr.replaceAll('-','').replaceAll('T','').replaceAll(':','')
     let result = await db.insertOneDoc(
       { db: 'admin', coll: 'backup' },
       {
-        _id      : backupId + NODE_ID,
+        _id      : ( backupId + NODE_ID ).toLowerCase(),
         backupId : backupId,
         nodeId   : NODE_ID,
         date     : dateStr,
@@ -143,7 +143,7 @@ async function updateRec( backupId, result ) {
           }  
         } 
       },
-      { _id : backupId + NODE_ID }
+      { _id : ( backupId + NODE_ID).toLowerCase() }
     )
     return backupId
   } catch ( exc ) { 
@@ -298,11 +298,18 @@ function backupJobID() {
 // ============================================================================
 
 async function deleteExpiredBackups() {
+  log.info( 'deleteExpiredBackups...' )
   try {
     let backups = await dbFile.loadAllDoc( 'admin', 'backup', null, { limit: 1000 } )
     if ( ! backups._ok ) { log.error( 'deleteExpiredBackups', backups ) }
     for ( let backup of backups.doc  ) {
-      if ( backup.status == 'ERASED' ) { continue }
+      if ( backup.status != 'OK' ) {
+        if ( cleanUpOldBackupData( backup ) ) {
+          log.debug( 'deleteExpiredBackups, delete rec', backup )
+          await db.deleteOneDoc( { db: 'admin', coll: 'backup'}, backup._id )
+        }
+        continue
+      }
       let expire = Date.now()
       switch ( backup.retention ) {
         case '1y': expire -= 365 * 24 * 60 * 60000; break
@@ -331,4 +338,16 @@ async function deleteExpiredBackups() {
     log.error( 'deleteExpiredBackups', exc )
     
   }
+}
+
+function cleanUpOldBackupData( backup ) {
+  let showDt =  24*60*60000 // 1d
+  switch ( backup.retention ) { // hide too old deleted backup
+    case '1w' : showDt = showDt *  14; break
+    case '1m' : showDt = showDt *  60; break
+    case '3m' : showDt = showDt * 180; break
+    case '1y' : showDt = showDt * 180; break
+  }
+  if (  Date.now() - backup._chg > showDt ) { return true } 
+  return false
 }
