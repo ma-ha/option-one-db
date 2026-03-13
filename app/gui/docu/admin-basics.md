@@ -64,40 +64,51 @@ The tokens will be [[admin-replica.mn|re-distributed]], this may take some time.
 Please be patient and wait for the new node to get to the "OK" status, before adding another node.
 
 
-## Configure Max Cluster Size (default: 16 Pods)
+## Max Cluster Size: Default is 48 Pods
 
-The maximum cluster pod count is defined by the TOKEN_LEN:
-- `export TOKEN_LEN=1` 
-  to set the max. DB pods count to 16 (= default)
-- `export TOKEN_LEN=2`
-  to set the max. DB pods count to 256
-- `export TOKEN_LEN=3` 
-  to set the max. DB pods count to 4095
--` export TOKEN_LEN=4` 
-  to set the max. DB pods count to 65535
+The minimum cluster size is equals DATA_REPLICATION value. 
+Mostly this means you need 3 pods to run a cluster. 
+
+The maximum cluster pod count (DATA_REPLICATION=3) is defined by the TOKEN_LEN:
+- export TOKEN_LEN=1 
+  to set the max. DB pods count to 48 (= default)
+- export TOKEN_LEN=2
+  to set the max. DB pods count to 768
+- export TOKEN_LEN=3 
+  to set the max. DB pods count to 12288
+- export TOKEN_LEN=4 
+  to set the max. DB pods count to 196608
 
 A larger TOKEN_LEN also comes with more internal overhead - 
 so don't set the TOKEN_LEN to 2 or 3 or 4 without any reason!
 
+
 ## Configure Replication
 
-By default data is stored in 3 replicas, which are always in different pods.
-
-The default quorum is 2, means:
+By default data is stored in 3 replicas: One master and 2 slaves. 
+The replicas are always in different pods. The default quorum is 2, means:
 If 2 replica pods say OK, the DB transaction is committed. 
 
-You can reduce DATA_REPLICATION to 1, resulting in these DB modes:
+Resulting in these DB modes:
 
 1. `DATA_REPLICATION=3` (default)
    ... requires min 3 DB pods initially. More are welcome, but can be added any time. Will continue to work if one pod is temporarily not available.
 2. `DATA_REPLICATION=2` (not recommended)
    requires 2 DB pods, to run some master/master mode.
 3. `DATA_REPLICATION=1`
-   Ideal for local development with only one DB pod and without any redundancy and load distribution.
+   for single server DB.
 
 Currently it's not implemented to change the `DATA_REPLICATION` for a existing DB. 
 
-Technical precondition is, that all pods can communicate via HTTP(S) to each other.
+## Adding Pods To A Cluster
+
+You can just raise the replica count. 
+New pods show up in the GUI and you must click the "Add" button to join them to the cluster.
+It's recommended to scale one pod after another and wait until the new member is populated with data before adding another pod.
+
+The cluster is self organizing.
+The data is re-distributed to new cluster members by a high efficient algorithm.
+This minimizes data transfers, but still distributes the load evenly.
 
 ## Define API URL Path (default: /db)
 

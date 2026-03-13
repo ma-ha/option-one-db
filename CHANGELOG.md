@@ -1,16 +1,23 @@
+# 0.9.0
+- CheckDataConsistency
+- cluster status
+
+# 0.8.6/7
+- refactor db-metrics
+- refactor db-jobs
+
 # 0.8.5
 - backup GUI: restore links only for OK
 - delete old backups from DB
 
-# 0.8.4
-- backup improvements
-- index: msbLen for numbers
-- fix deployment
-
-# 0.8.2
-- SP access for "*" 
-- SP Auth hardening
+# 0.8.1
+- index:
+  - fix spec
+  - support "msbLen" for numbers
+- access credentials for "*" 
+- API authz hardening
 - Delete DB: Delete related API access id  
+- fix API metrics
 
 # 0.8.0
 - Q1/2026 Release

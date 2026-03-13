@@ -1,6 +1,5 @@
 const cfgHlp   = require( '../helper/config' )
 const log      = require( '../helper/logger' ).log
-const logger   = require( '../helper/logger' )
 const helper   = require( './db-helper' )
 const pubsub   = require( '../cluster-mgr/pubsub' )
 
@@ -10,7 +9,8 @@ const dbDocCre  = require( './db-doc-cre' )
 const dbDocFind = require( './db-doc-find' )
 const dbDocUpd  = require( './db-doc-upd' )
 const dbDocDel  = require( './db-doc-del' )
-
+const dbMetrics = require( './db-metrics' )
+const dbJobs    = require( './db-jobs' )
 const persistence = require( './db-persistence' )
 
 let nodeMgr = null
@@ -51,15 +51,17 @@ module.exports = {
 
   getDocById,
   listUserRights        : persistence.listUserRights,
-  changeUserRights      : persistence.changeUserRights,
+  // changeUserRights      : persistence.changeUserRights,
 
-  sendDataBatch,
-  storeDataBatch,
+  sendDataBatch         : dbJobs.sendDataBatch,
+  storeDataBatch        : dbJobs.sendDataBatch, 
+  getJobs               : dbJobs.getJobs,
+  manageJobs            : dbJobs.manageJobs,
+  creTransferDataJobs   : dbJobs.creTransferDataJobs,
 
-  getJobs,
-  manageJobs,
-  processQueuedDtaUpd,
-  createTransferTokenDataJobs
+  startConsistencyChecks,
+  checkDataConsistency,
+  processQueuedDtaUpd
 }
 
 // ============================================================================
@@ -79,9 +81,6 @@ let REPLICATION_QUORUM = 2
 let startupChecks = null
 
 let scheduleTasksInterval = null
-let persistMetricsInterval = null
-let persistErrLogsInterval = null
-
 
 async function init( configParams, nodeMgrObj ) {
   log.info( 'Init DB ...')
@@ -114,9 +113,8 @@ async function init( configParams, nodeMgrObj ) {
   // normal operations: check fir jobs
   scheduleTasksInterval = setInterval( scheduleTasks, 10000 ) // or 15_
 
-  // persist db metrics
-  persistMetricsInterval = setInterval( persistMetrics, 60000 + Math.floor( Math.random() * 10000 ) )
-  persistErrLogsInterval = setInterval( persistErrLogs, 10000 ) // + Math.floor( Math.random() * 10000 ) )
+  dbJobs.init( configParams, nodeMgr )
+  dbMetrics.init( configParams, nodeMgr )
 }
 
 
@@ -124,10 +122,9 @@ async function terminate() {
   log.info( 'Terminate DB...' )
   try {
     clearInterval( scheduleTasksInterval )
-    clearInterval( persistMetricsInterval )
-    clearInterval( persistErrLogsInterval )      
-  } catch ( exc ) { log.info(  'Terminate DB', exc )
-  }
+    clearInterval( sendDtaConsistentInterval )
+    await dbMetrics.terminate()
+  } catch ( exc ) { log.info( 'Terminate DB', exc ) }
   await persistence.terminate()
 }
 
@@ -135,7 +132,7 @@ async function terminate() {
 
 async function insertOneDoc( r, doc ) {
   let result = await dbDocCre.insertOneDoc( r, doc )
-  addDbMetric( r.db, r.coll, "ins", result )
+  dbMetrics.addDbMetric( r.db, r.coll, "ins", result )
   return result
 }
 
@@ -143,19 +140,19 @@ async function insertOneDoc( r, doc ) {
 
 async function find( dbName, collName, query, options = {} ) {
   let result = await dbDocFind.find( dbName, collName, query, options )
-  addDbMetric( dbName, collName, "fnd", result )
+  dbMetrics.addDbMetric( dbName, collName, "fnd", result )
   return result
 }
 
 async function findDocs( r, query ) {
   let result = await dbDocFind.findDocs( r, query )
-  addDbMetric( r.db, r.coll, "fnd", result )
+  dbMetrics.addDbMetric( r.db, r.coll, "fnd", result )
   return result
 }
 
 async function findOneDoc( r, filter ) {
   let result = await dbDocFind.findOneDoc( r, filter )
-  addDbMetric( r.db, r.coll, "fnd", result )
+  dbMetrics.addDbMetric( r.db, r.coll, "fnd", result )
   return result
 }
 
@@ -172,15 +169,15 @@ async function findOneDoc( r, filter ) {
 */
 async function updateOneDoc( r, doc, opt = {} ) {
   if ( ! doc._id ) { return { _error: 'Require _id' } }
-  let docbyId = await persistence.getDocById( r.db, r.coll,  doc._id )
-  if ( docbyId._error ) { return docbyId }
-  let result = await dbDocUpd.updateOneDoc( r, doc, docbyId.doc )
-  addDbMetric( r.db, r.coll, "upd", result )
+  let docById = await persistence.getDocById( r.db, r.coll,  doc._id )
+  if ( docById._error ) { return docById }
+  let result = await dbDocUpd.updateOneDoc( r, doc, docById.doc, opt )
+  dbMetrics.addDbMetric( r.db, r.coll, "upd", result )
   return result
 }
 
 async function updateOneDocAllNodes( r, doc ) {
-  let result = await dbDocUpd.updateOneDoc( r, doc, { allNodes: true } )
+  let result = await updateOneDoc( r, doc, { allNodes: true } )
   return result
 }
 
@@ -216,20 +213,20 @@ async function replaceOneDoc( txnId, dbName, coll, id, doc, opt = {} ) {
     pubsub.sendRequest( txnId, token, updMsg )
   }
   let result = await pubsub.getReplies( txnId )
-  addDbMetric( dbName, coll, "upd", result )
+  dbMetrics.addDbMetric( dbName, coll, "upd", result )
   return { _ok: result._ok, _error: result._error, _id: doc._id }
 }
 //-----------------------------------------------------------------------------
 
 async function deleteOneDoc( r, id ) {
   let result = await dbDocDel.deleteOneDoc( r, id )
-  addDbMetric( r.db, r.coll, "del", result )
+  dbMetrics.addDbMetric( r.db, r.coll, "del", result )
   return result
 }
 
 async function deleteOneDocAllNodes( r, id ) {
   let result = await dbDocDel.deleteOneDocAllNodes( r, id )
-  addDbMetric( r.db, r.coll, "del", result )
+  dbMetrics.addDbMetric( r.db, r.coll, "del", result )
   return result
 }
 
@@ -237,7 +234,7 @@ async function deleteOneDocAllNodes( r, id ) {
 
 async function getDocById( dbName, collName, docId, options = {} ) {
   let result = await persistence.getDocById( dbName, collName, docId, options )
-  addDbMetric( dbName, collName, "del", result )
+  dbMetrics.addDbMetric( dbName, collName, "del", result )
   return result
 }
 
@@ -284,9 +281,9 @@ async function scheduleTasks() {
     }
   }
   if ( cfg.MODE != "SINGLE_NODE" ) { 
-    let { inLeadJobs, passiveJobs } = await getJobs()
-    manageJobs( inLeadJobs )
-    checkJobToDos( passiveJobs )
+    let { inLeadJobs, passiveJobs } = await dbJobs.getJobs()
+    dbJobs.manageJobs( inLeadJobs )
+    dbJobs.checkJobToDos( passiveJobs )
   }
 }
 
@@ -296,231 +293,68 @@ function ownNodeAddr() {
 }
 
 // ============================================================================
+let sendDtaConsistentInterval = null
+let masterTokenArr = []
+let nodeId = null
 
-async function getJobs() {
-  let inLeadJobs = []
-  let passiveJobs = []
-  let jobsResult = await dbDocFind.find( 'admin', 'job', { } )
-  if ( ! jobsResult._error && jobsResult.data ) { 
-    for ( let job of jobsResult.data ) {
-      if ( job.nodeId == nodeMgr.ownNodeId() ) {
-        inLeadJobs.push( job )
-      } else 
-      if ( job.toNode == nodeMgr.ownNodeId() ) {
-        passiveJobs.push( job )
+// started by nodeMgr if status initDone
+function startConsistencyChecks( ownNodeId, tokenMap ) {
+  log.info( 'startConsistencyChecks...' )
+  nodeId = ownNodeId
+  for ( const tk in tokenMap ) try {
+    if ( tokenMap[ tk ].replNodeId[ ownNodeId ].status == 'master' ) {
+      masterTokenArr.push( tk )
+    }
+  } catch ( exc ) { log.warn( 'startConsistencyChecks', exc ) }
+  log.info( 'startConsistencyChecks tokenMap', ownNodeId, masterTokenArr )
+  sendDtaConsistentInterval = setInterval( sendDataOk, 5000 )
+}
+
+// send out every seconds some data, to let other nodes check if these are consistent
+async function sendDataOk( ) {
+  try {
+    const txnId = helper.getTxnId( 'DCO' )
+    const check = await persistence.genConsistencyCheck( masterTokenArr )
+    if ( ! check ) { return }
+    let checkConsistency = {
+      op    : 'CheckDataConsistency',
+      txnId : txnId,
+      frm   : nodeId,
+      db    : check.db,
+      col   : check.col,
+      tkn   : check.tkn,
+      doc   : check.doc
+    }
+    pubsub.sendRequest( txnId, check.tkn, checkConsistency )      
+  } catch ( exc ) { log.warn( 'sendDataOk', exc ) }
+}
+
+
+async function checkDataConsistency( check ) {
+  try {
+    if ( check.frm == nodeId ) { 
+      log.debug( 'checkDataConsistency ignore own message' )
+      return 
+    }
+    log.debug( 'checkDataConsistency ... ', check.db, check.col, check.tkn )
+    let myDocs = await persistence.getHashesOfToken( check.db, check.col, check.tkn )
+    if ( myDocs.length != check.doc.length ) { // TODO better check if equal
+      log.info( 'checkDataConsistency >> WARN doc count mismatch', check.db, check.col, check.tkn )
+    } else {
+      log.info( 'checkDataConsistency >> OK doc count', check.db, check.col, check.tkn )
+    }
+    for ( const id in check.docs ) {
+      if ( check.docs[id] != myDocs[id] ) {
+        log.info( 'checkDataConsistency >> WARN doc inconsistent', check.db, check.col, id, check.docs[id], myDocs[id] )
+        // TODO sync data record 
       }
     }
-    inLeadJobs.sort( (a,b) => { return ( a._cre - b._cre ) })
-    passiveJobs.sort( (a,b) => { return ( a._cre - b._cre ) })
-  }
-  return { 
-    inLeadJobs: inLeadJobs,
-    passiveJobs: passiveJobs
-  }
-}
-
-async function manageJobs( jobs ) {
-  if ( ! jobs || jobs.length == 0 ) { return }
-  let job = jobs[ 0 ]
-  // log.info( 'JOOOOb', JSON.stringify(job))
-  if ( ! job.started ) {
-    await startBatch( job )
-  } else {
-    if ( job.sentNextBatch ) {
-      await sendDataBatch( job )
-    }
-  }
-  // let cre1 = jobsResult.data [0]._cre
-  // for ( let job of jobs ) {
-  //   log.info( 'jobs', job._cre, cre1 - job._cre, job.jobId, job.done, job.started )
-  // }
-}
-
-
-async function checkJobToDos( jobs ) {
-  if ( ! jobs || jobs.length == 0 ) { return }
-  for ( let job of jobs ) {
-    if ( job.started ) {
-      log.info( job.jobId, 'CHECK CLIENT JOBS started ... ' )
-      if ( job.waitingForReceiver ) {
-        await requestNextBatch( job )
-      } else {
-        log.info( job.jobId, 'CHECK CLIENT JOBS',  Date.now() - job._chg,  Date.now() , job._chg)
-        if ( Date.now() - job._chg > 60000 ) {
-          await requestNextBatch( job )
-        }
-      }  
-    } 
-  }
-}
-
-
-const BATCH_COUNT = 10
-
-
-async function sendDataBatch( job ) {
-  log.info( job.jobId, 'jobs','######### sendDataBatch', job.db, job.coll, job.fromNode, job.token, job.done )
-  
-  let batchIds = await persistence.getAllDocIds( job.jobId, job.db, job.coll, { start: job.done, count: BATCH_COUNT } )
-  if ( idArr._error ) { return batchIds }
-  for ( let docId of batchIds ) {
-
-    let doc = await persistence.getDocById( job.db, job.coll, docId )
-    let dataMsg = {
-      _id      : job._id,
-      jobId    : job.jobId,
-      action   : 'InsertLocally',
-      fromNode : job.rmFrmNode,
-      toNode   : job.toNode,
-      db       : job.db, 
-      coll     : job.coll,
-      data     : [ doc ] // TODO, check size and send many
-    }
-    log.info( job.jobId, 'jobs','######### sendDataBatch DOC', job.db, job.coll, docId )
-
-    await pubsub.sendToQueue( job.jobId, job.queue, 'TransferData', dataMsg )
-  }
-
-  let lastBatch = false
-  if ( batchIds.length < BATCH_COUNT ) { 
-    lastBatch = true
-  }
-
-  let batchEndMsg = {
-    _id      : job._id,
-    jobId    : job.jobId,
-    action   : ( lastBatch ? 'Completed' : 'BatchEnd' ),
-    fromNode : job.rmFrmNode,
-    toNode   : job.toNode,
-    db       : job.db, 
-    coll     : job.coll,
-  }
-  await pubsub.sendToQueue( job.jobId, job.queue, 'TransferData', batchEndMsg )
-}
-
-async function storeDataBatch( job ) {
-  log.info( 'storeDataBatch', job  )
-  switch ( job.action  ) {
-
-    case 'InsertLocally' :
-      for ( let doc in job.data ) {
-        persistence.insertDocPrep( job.jobId, job.db, job.coll, doc ) 
-      }
-      break
-
-    case 'BatchEnd' :
-      await requestNextBatch( job, BATCH_COUNT )
-      break
-
-    case 'Completed' :
-      await endJob( job )
-      break
-
-    default:
-      break;
-  }
-}
-
-
-async function startBatch( job ) {
-  log.info( job.jobId, 'jobs','######### startBatch', job.db, job.coll, job.fromNode+'>'+job.toNode, job.token )
-  await updateJob( job, { 
-    started            : true, 
-    waitingForReceiver : true, 
-    sentNextBatch      : false,
-    batchDone          : false
-  })
-}
-
-async function requestNextBatch( job, done = 0 ) {
-  log.info( job.jobId, 'jobs','######### requestNextBatch', job.db, job.coll, job.fromNode+'>'+job.toNode, job.done + BATCH_COUNT,  pubsub.getReplyQueue() )
-  await updateJob( job, { 
-    sentNextBatch      : true,
-    batchDone          : true,
-    waitingForReceiver : false,
-    done               : job.done + done,
-    queue              : pubsub.getReplyQueue()
-  })
-}
-
-async function updateJob( job, update ) {
-  log.info( job.jobId, 'jobs','######### send updateJob', job.db, job.coll, job.fromNode+'>'+job.toNode, job.token )
-  const JOB_UPD = { db : 'admin', coll: 'job', txnId : job.jobId, 
-    update: { $set: update } 
-  }
-  await updateOneDoc( JOB_UPD, { _id: job._id }, { allNodes: true } )
-}
-
-async function endJob( job ) {
-  log.info( job.jobId, 'jobs','######### send endJob', job )
-  const JOB = { db : 'admin', coll: 'job', txnId : job.jobId+'.DEL' }
-  await dbDocDel.deleteOneDocAllNodes( JOB, job._id)
-}
-
-
-async function checkForJob( dta ) {
-  if ( dta.db == 'admin' && dta.col == 'job' ) {
-    let job = await persistence.getDocById( dta.db, dta.col, dta.docId )
-    //log.info('CHECK JOB >>>>>>>>>>>>>>>>>>>>>>>>>>>>',  dta.upd,  job.doc?.fromNode, nodeMgr.ownNodeId() )
-    if ( job.doc?.fromNode == nodeMgr.ownNodeId() ) {
-      manageJobs([ job.doc ])
-    } else  
-    if ( job.doc?.toNode == nodeMgr.ownNodeId() ) {
-      checkJobToDos([ job.doc ])
-    }
+  } catch ( exc ) {
+    log.error( dbReq.data.txnId, 'DB process', exc, dbReq )
   }
 }
 
 // ============================================================================
-
-async function createTransferTokenDataJobs( task ) {
-  log.info( 'TransferTokenData >>>', task )
-  const JOB_COLL = { db : 'admin', coll: 'job', txnId : task.jobId }
-  let subTsk = 0
-  let dbTree = await getDbTree()
-  // log.info( 'TransferTokenData', dbTree )
-  for ( let dbName in dbTree ) {
-    log.info( 'TransferTokenData', dbName )
-    for ( let collName in dbTree[ dbName ].c ) {
-      if ( dbName == 'admin' && collName == 'job' ) { continue }
-      let coll = dbTree[ dbName ].c[ collName ]
-      log.info( 'TransferTokenData', dbName, collName, coll.masterData  )
-
-      let transferJob = {
-        job      : 'TransferTokenData',
-        action   : task.action,
-        jobId    : task.jobId +'.'+  nodeMgr.ownNodeId() +'.'+ subTsk,
-        nodeId   : nodeMgr.ownNodeId(),
-        fromNode : task.fromNode, // thats me
-        toNode   : task.toNode,
-        db       : dbName,
-        coll     : collName,
-        done     : 0
-      }
-
-      if ( coll.masterData ) {
-        if ( task.action == 'CopyMasterData' ) { 
-          transferJob.token  = '*'
-        } else { continue }
-      } else {
-        transferJob.token  = task.token
-      }
-
-      if ( task.master ) {
-        transferJob. master = task.masterNode,
-        transferJob.replica = task.replicaNode
-      }
-
-      log.info( 'TransferTokenData', JSON.stringify( transferJob ) )
-      await dbDocCre.insertOneDoc( JOB_COLL, transferJob )
-      subTsk ++
-      
-    }
-  }
-}
-
-// ============================================================================
-// Callback if a message is received in the data queue
 
 async function processQueuedDtaUpd( dbReq ) {
   try {
@@ -545,7 +379,7 @@ async function processQueuedDtaUpd( dbReq ) {
 
       case 'replace one':
         resultData = await dbDocUpd.replaceOneDoc( dta.txnId, dta.db, dta.col, dta.docId, dta.doc, dta.opt )
-        await  checkForJob( dta )
+        await dbJobs.checkForJob( dta )
         break;
       
       case 'find all doc':
@@ -595,12 +429,17 @@ async function processQueuedDtaUpd( dbReq ) {
         break;
 
       case 'listUserRights':
-        log.warn('TODO implement: ')
+        log.warn('TODO implement: listUserRights')
         break;
 
       case 'changeUserRights':
-        log.warn('TODO implement: listUserRights')
+        log.warn('TODO implement: changeUserRights')
         break;
+
+      case 'CheckDataConsistency':
+        log.debug( dta.txnId, ' <<<< CheckDataConsistency ',dta )
+        checkDataConsistency( dta )
+        break
 
       default:
         break;
@@ -615,121 +454,5 @@ async function processQueuedDtaUpd( dbReq ) {
     await pubsub.sendResponse( dta.txnId, result )
   } catch ( exc ) {
     log.error( dbReq.data.txnId, 'DB process', exc, dbReq )
-  }
-}
-
-
-// ============================================================================
-let DB_METRICS = {}
-let DB_METRICS_ID = {}
-let metricChanged = false
-
-async function persistMetrics() {
-  try {
-    log.debug( 'persistMetrics...' )
-    // log.debug( 'persistMetrics', JSON.stringify( DB_METRICS, null, '  ' ), DB_METRICS_ID )
-    if ( ! nodeMgr.isInitOK() ) { return }
-    let now = Math.floor( Date.now() / 60000 )
-    let txnId = 'DMX' + helper.randomChar( 10 )
-    for ( let dbName in DB_METRICS ) {
-      let db = DB_METRICS[ dbName ]
-      let needSave = false
-      let metricsUpd = { 
-        db   : dbName, 
-        coll : {}
-      }
-      for ( let collName in db ) {
-        // log.info( 'persistMetrics', dbName, collName )
-        let coll = db[ collName ]
-        for ( ts in coll ) {
-          // log.info( 'persistMetrics >>', dbName, collName, ts )
-          let metrics = coll[ ts ]
-          if ( metrics.ts != now  ) {
-            if ( ! metricsUpd.coll[ collName ] ) { metricsUpd.coll[ collName ] = {} }
-            if ( ! metricsUpd.coll[ collName ][ ts ] ) { metricsUpd.coll[ collName ][ ts ] = {} }
-            for ( let act in metrics ) {
-              if ( act != "ts" ) { // timestamp, not action id
-                metricsUpd.coll[ collName ][ ts ][ act ] = metrics[ act ]
-                needSave = true
-              }  
-            }
-            delete coll[ ts ]
-          }
-        }
-      }
-      if ( ! needSave ) { continue }
-      let metricsColl = {
-        txnId : txnId,
-        db    : 'admin',
-        coll  : 'db-metrics'
-      }
-      // if ( ! DB_METRICS_ID[ dbName ] ) {
-        let find = await findOneDoc( metricsColl, { db : dbName } )
-        // log.info( 'persistMetrics findOneDoc', find  )
-        if ( ! find.doc ) {
-          log.debug( 'persistMetrics insertOne', metricsUpd )
-          let result = await insertOneDoc( metricsColl, metricsUpd )
-          log.info( 'persistMetrics insertOne', result )
-          if ( ! result._error && result.ins?._id ) {
-            DB_METRICS_ID[ dbName ] = result  //<<<<<<<<<<<<<<<<<<<<
-          }
-        } else {
-          metricsUpd._id = find.doc._id
-          log.debug( 'persistMetrics updateOneDoc',  metricsUpd )
-          // { $set: { 'blah.text': txt }
-          let incMetrics = {}
-          for ( let coll in metricsUpd.coll ) {
-            for ( let ts in metricsUpd.coll[ coll ] ) {
-              for ( let op in metricsUpd.coll[ coll ][ ts ] ) {
-                incMetrics[ 'coll.'+coll +'.'+ ts +'.'+ op ] =  metricsUpd.coll[ coll ][ ts ][ op ]
-              }
-            }
-          }
-          metricsColl.update = { $inc : incMetrics }
-          let result = await updateOneDoc( metricsColl, { _id: find.doc._id , db: dbName } ) 
-          // log.info( 'persistMetrics updateOneDoc', result )
-        }
-      // }
-      // if ( DB_METRICS_ID[ dbName ] ) {
-      //   metricsUpd._id =  DB_METRICS_ID[ dbName ] //<<<<<<<<<<<<<<<<<<<<
-      //   await updateOneDoc( metricsColl, metricsUpd ) /// <<<<<<<<<<<<<<< FIX  
-      // }
-    }
-  } catch ( exc ) { log.error( 'persistMetrics', exc ) }
-}
-
-function addDbMetric( db, coll, action, result ) {
-  if ( db == 'admin' ) {
-    if (  coll = 'api-metrics' ) return
-    if (  coll = 'db-metrics'  ) return
-  }
-  if ( ! DB_METRICS[ db ] ) {
-    DB_METRICS[ db ] = {} 
-  }
-  if ( ! DB_METRICS[ db ][ coll ] ) { 
-    DB_METRICS[ db ][ coll ] = {} 
-  }
-  let timestamp = Math.floor( Date.now() / 60000 ) 
-  if ( ! DB_METRICS[ db ][ coll ][ timestamp ] ) {
-    DB_METRICS[ db ][ coll ][ timestamp ] = { ts: timestamp}
-  }
-  if ( ! DB_METRICS[ db ][ coll ][ timestamp ][ action ] ) {
-    DB_METRICS[ db ][ coll ][ timestamp ][ action ] = 0
-    DB_METRICS[ db ][ coll ][ timestamp ][ 'err' ]  = 0
-  }
-  DB_METRICS[ db ][ coll ][ timestamp ][ action ] ++
-  if ( result._error ) {
-    DB_METRICS[ db ][ coll ][ timestamp ][ 'err' ] ++
-  }
-  metricChanged = true
-}
-
-
-async function persistErrLogs() {
-  // log.info( 'persistErrLogs', logger.getErrLogs().length)
-  if ( await persistence.getColl( 'admin', 'log' ) ) {
-    for ( let log of logger.getErrLogs() ) {
-      dbDocCre.saveErrLog( log )
-    }
   }
 }

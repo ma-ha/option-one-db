@@ -3,6 +3,7 @@ const log   = require( '../helper/logger' ).log
 const fs    = require( 'fs' )
 const { mkdir, writeFile, readFile, rename, rm, rmdir, stat, readdir, open, opendir, cp  } = require( 'node:fs/promises' )
 // const path = require('path')
+const crypto = require( 'crypto' )
 
 module.exports = {
   init, 
@@ -41,8 +42,8 @@ module.exports = {
   fileExists,
   dirExists,
   ensureDirExists,
-  checkValidName
-
+  checkValidName,
+  getHashesOfToken
 }
 
 // ============================================================================
@@ -79,6 +80,7 @@ async function init( nodeName, configParams ) {
 
     // let s = await du( dtaDir )
     // log.info( '>>>>>>>>>>>>>>>>>>>>>>>>>>>',  Math.round( s / ( 1024 * 1024 ) ) + ' MB' )
+
   } catch ( exc ) {
     log.fatal( 'init', exc.message )
     throw Error( exc.message )
@@ -673,7 +675,7 @@ async function restoreBackup( dateStr, dbName, collName, restoreIndex, deactivat
     log.info( 'restoreBackup ...', dbName, collName, dateStr, restoreIndex, deactivateExpire )
     let dtStr = dateStr.replaceAll(':','').replaceAll('-','')
     let bckDir = backupDir + dtStr +'/'+ dbName +'/'+ collName +'/'
-    let collDir = dtaDir + dbName +'/'+ collName +'-'+ dtStr +'/'
+    let collDir = dtaDir + dbName +'/'+ collName +'-restore'+ dtStr +'/'
     await ensureDirExists( collDir + 'doc/' ) 
     await ensureDirExists( collDir + 'idx/' ) 
     log.info( 'restoreBackup copy docs ...' )
@@ -790,7 +792,7 @@ function getJsonRecursive( path ) {
       }
     }
   } catch ( exc ) {
-    log.fatal( 'getJsonRecursive', path, exc.message)
+   log.debug( 'getJsonRecursive exc', path, exc.message)
     // throw Error( exc.message )
   }
   return jsonFiles
@@ -848,5 +850,28 @@ async function fileExists( filePath ) {
   } catch (error) {
     // log.warn( '! fileExists', filePath )
     return false
+  }
+}
+
+async function getHashesOfToken( dbName, collName, token ) {
+  let docDir = dtaDir + dbName +'/'+ collName +'/doc/' + token + '/'
+  let filenames = await getJsonRecursive( docDir )
+  let result = {}
+  for ( let docPath of filenames ) {
+    let docName = docPath.substring( docPath.lastIndexOf('/') + 1 ).replace( '.json', '' )
+    let fileHash = await getChecksum( docPath )
+    result[ docName ] = fileHash
+  }
+  return result
+}
+
+
+async function getChecksum( fileName, hashType = 'sha1' ) {
+  try {
+    const data = await readFile( fileName )
+    return crypto.createHash( hashType ).update( data, 'utf8' ).digest('base64url');
+  } catch ( exc ) { 
+    log.warn( 'getChecksum', file, exc.message )
+    return '-'
   }
 }

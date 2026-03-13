@@ -5,7 +5,7 @@ Option One DB is the next generation open source document database:
 - Scales horizontally
   ... but runs as single server on a laptop or even a Raspberry Pi
 - Optimized to run in a container and Kubernetes
-- Powerful [indexing and query](README-query.md) engine
+- Powerful indexing and query engine
 - Integrated GUI for administration, monitoring and data access
 - Simple user and API access management
 - Built in backup scheduler
@@ -157,24 +157,29 @@ Settings required:
   
 Important: Currently it is not supported to extend a single node db to a cluster.
 
-## Max Cluster Size: Default is 16 Pods
+## Max Cluster Size: Default is 48 Pods
 
-The maximum cluster pod count is defined by the TOKEN_LEN:
-- `export TOKEN_LEN=1`
-  to set the max. DB pods count to 16 (= default)
-- `export TOKEN_LEN=2`
-  to set the max. DB pods count to 256
-- `export TOKEN_LEN=3`
-  to set the max. DB pods count to 4095
-- `export TOKEN_LEN=4`
-  to set the max. DB pods count to 65535
+The minimum cluster size is equals DATA_REPLICATION value. 
+Mostly this means you need 3 pods to run a cluster. 
+
+The maximum cluster pod count (DATA_REPLICATION=3) is defined by the TOKEN_LEN:
+- export TOKEN_LEN=1 
+  to set the max. DB pods count to 48 (= default)
+- export TOKEN_LEN=2
+  to set the max. DB pods count to 768
+- export TOKEN_LEN=3 
+  to set the max. DB pods count to 12288
+- export TOKEN_LEN=4 
+  to set the max. DB pods count to 196608
 
 A larger TOKEN_LEN also comes with more internal overhead - 
 so don't set the TOKEN_LEN to 2 or 3 or 4 without any reason!
 
+
 ## Configure Replication
 
-By default data is stored in 3 replicas, which are always in different pods. The default quorum is 2, means:
+By default data is stored in 3 replicas: One master and 2 slaves. 
+The replicas are always in different pods. The default quorum is 2, means:
 If 2 replica pods say OK, the DB transaction is committed. 
 
 Resulting in these DB modes:
@@ -188,6 +193,16 @@ Resulting in these DB modes:
 
 Currently it's not implemented to change the `DATA_REPLICATION` for a existing DB. 
 
+## Adding Pods To A Cluster
+
+You can just raise the replica count. 
+New pods show up in the GUI and you must click the "Add" button to join them to the cluster.
+It's recommended to wait until the new node is populated witch data before adding another node.
+
+The cluster is self organizing.
+The data is re-distributed to new cluster members by a high efficient algorithm.
+This minimizes data transfers, but still distributes the load evenly.
+
 # License 
 
 See [Option One DB License](LICENSE.md) 
@@ -200,4 +215,4 @@ If you need
 - a version with **special features**
  - you plan to offer the Option One DB as a **hosted or managed service**?
 
-Do not hesitate to contact me: admin at mh-svr.de
+Don't hesitate to contact me: admin at mh-svr.de

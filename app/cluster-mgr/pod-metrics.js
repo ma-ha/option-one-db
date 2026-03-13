@@ -108,11 +108,19 @@ async function getPodMetrics2( ) {
       for ( let t in pods[ podName ].token ) {
         tokens += t + ' '
       }
+      let status = pods[ podName ].status
+      if ( status == '??' ) {
+        status = '<span class="alarmstatus">' + status + '</span>'
+      } else  if ( status != 'OK' ) {
+        status = '<span class="warningstatus">' + status + '</span>'
+      } else {
+        status = '<span class="okstatus">' + status + '</span>'
+      }
 
       result.push({
         nodeId  : nodeId,
         podName : podName,
-        status  : pods[ podName ].status,
+        status  : status,
         tokens  : tokens,
         reqPM   : ( metric ? getReqTimeSeries( metric.apiMetrics ) : [] )
       })

@@ -147,7 +147,7 @@ async function jobDispatcher( job, msgProp ) {
       log.debug( job.jobId, '<<<< SyncNodes <<<<<<< ',statMgr.getOwnStatus(), job.task )
       logSyncDta( '<< '+statMgr.getOwnStatus() + ' <<< SyncNodes <<< ('+ job.task.from+')', job.task )
       // log.info( 'jobProcessor >>>>', job.task.nodes )
-      await updNode( job.task.nodes, job.task.nodeIdMap )
+      await updNode( job.task )
       await db.updateDbTree( job.jobId, job.task.db )
     break
 
@@ -167,7 +167,7 @@ async function jobDispatcher( job, msgProp ) {
     case 'TransferTokenData':
       if ( job.task.fromNode === myNodeId ) { // my node must receive token
         // log.info( 'jobDispatcher <<<<<<<<<<<<<<<<', job.jobType, JSON.stringify( job.task ) )
-        await db.createTransferTokenDataJobs( job.task )
+        await db.creTransferDataJobs( job.task )
         await statMgr.pushTaskToQueue( job.task ) // remind me
       } else {
         log.info( job.jobId, 'jobDispatcher <<', job.jobType, JSON.stringify( job.task ) )
@@ -188,7 +188,6 @@ async function jobDispatcher( job, msgProp ) {
         await statMgr.pushTaskToQueue( job.task ) // remind me to do after all data received
       }
     break
-
 
     default:
       log.warn( job.jobId, 'jobDispatcher', 'Unknown job type:', job.jobType )
@@ -216,8 +215,13 @@ function ownNodeAddr( ) {
 // ============================================================================
 // here update calls are processed
 
-async function updNode( nodes, nodeIdMap ) {
+async function updNode( task ) {
+  const fromNode = task.from
+  const nodes = task.nodes
+  const nodeIdMap = task.nodeIdMap
+
   await statMgr.setNodeIdMap( nodeIdMap )
+  statMgr.updateLastSeen( fromNode )
   await statMgr.mergeNodes( nodes )
 
   // subscribe data updates
@@ -307,7 +311,10 @@ async function broadcastNodeUpdate( options = {}) {
     if ( own.status == 'OK' && syncData.db.admin && syncData.db.admin .c['api-metrics'] ) {
       if ( ! initDone ) {
         log.info( 'Init metrics')
-        loadMetrics()  
+        loadMetrics()
+        // if ( ! cfg.MODE == "SINGLE_NODE" ) {
+          db.startConsistencyChecks( statMgr.ownNodeId(), statMgr.getOwnTokens() )
+        // }
       }
     }
     // if ( own.status == 'OK' && checkAdminCollectionOK ) {

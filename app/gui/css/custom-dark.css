@@ -131,6 +131,19 @@ a:hover {
 
 /* main */
 
+.alarmstatus {
+  color: red;
+  font-weight: bold;
+}
+.warningstatus {
+  color: orange;
+  font-weight: bold;
+}
+.okstatus {
+  color: lightgreen;
+  font-weight: bold;
+}
+
 .header-logo {
   padding-left: 13px;
 }

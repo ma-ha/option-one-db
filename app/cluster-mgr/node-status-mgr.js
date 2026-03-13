@@ -12,6 +12,7 @@ module.exports = {
 
   getSyncData,
   setNodeIdMap,
+  updateLastSeen,
   mergeNodes,
 
   ownNodeId,
@@ -66,6 +67,7 @@ let cfg = {
   DATA_REGION: 'EU',
   DATA_DIR : './db/',
   DB_SEED_PODS : null,
+  NODE_SYNC_INTERVAL_MS : 10000,
   TOKEN_LEN : 1
 }
 
@@ -382,6 +384,11 @@ async function setNodeIdMap( nodeIdMap ) {
   await writeNodeInfo()
 }
 
+function updateLastSeen( fromNode ) {
+  if (  clusterNodes[ fromNode ] ) {
+    clusterNodes[ fromNode ].lastSeen = Date.now()
+  }
+}
 
 async function mergeNodes( nodesUpd ) {
   log.debug( 'mergeNodes ...', nodesUpd )
@@ -465,13 +472,25 @@ async function mergeNodes( nodesUpd ) {
       }
     }
   }
-  for ( let tkn in myNodeStatus.token ) {
+  // for ( let tkn in myNodeStatus.token ) {
 
-  }
+  // }
 
   if ( myNodeStatus.status == 'NEW' && myNodeStatus.nodeId != null && Object.keys(  myNodeStatus.token ).length > 0 ) {
     log.warn( 'STATUS LOST, RESYNC .....')
     setStatus( 'Syncing' )
+  }
+
+  for ( let node in clusterNodes ) {
+    if ( node == cfg.OWN_NODE_ADDR ) { continue }
+    let lastSeen = clusterNodes[ node ].lastSeen
+    if ( lastSeen && ( Date.now() - lastSeen >  3 * cfg.NODE_SYNC_INTERVAL_MS ) ) {
+      if ( clusterNodes[ node ].status != '??' ) {
+        log.warn( 'No sync data from cluster node ', node )
+      }
+      clusterNodes[ node ].status = '??'
+      log.warn
+    }
   }
 
   await writeNodeInfo()

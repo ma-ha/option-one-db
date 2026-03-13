@@ -55,15 +55,10 @@ module.exports = {
   findDocCandidates,
   getAllDoc,
 
-  // getUser,
-  // getUserById,
   listUserRights,
-  // changeUserRights
-
-  // newBackupSchedule,
-  // cancelBackupSchedule,
-  // runBackupOnNode,
-  // restoreBackup
+  
+  genConsistencyCheck,
+  getHashesOfToken
 }
 // ============================================================================
 let nodeName = null
@@ -203,6 +198,7 @@ async function insertDocPrep( txnId, dbName, collection, doc, options ) {
   if ( collHasIndex( dbName, collection ) ) {
     await indexer.addDocToIndex( txnId, dbName, collection, doc, db[ dbName ].collection[ collection].index )
   }
+  delete lastConsistencyCheck[ dbName +'_'+ collection +'_'+ docId[0] ]
   writeOpsOngoing --
   return result
 }
@@ -253,6 +249,7 @@ async function updateDocPrep( txnId, dbName, collName, doc, options ) {
   // if ( ! tstDoc._ok ) { return { _ok: false, _error: 'not found'} }
   cache.addToCache( dbName, collName, doc._id, doc )
   let result = await dbFile.replaceDocByIdPrep( dbName, collName, doc, options )
+  delete lastConsistencyCheck[ dbName +'_'+ collName +'_'+ doc._id[0] ]
   writeOpsOngoing --
   return result 
 }
@@ -264,6 +261,7 @@ async function updateDocCommit( txnId, dbName, collName, docId, options ) {
   //   delete db[ dbName ].collection[ collection ].doc[ docId ]._txnId // unset transaction marker
   // }
   await dbFile.replaceDocByIdCommit( dbName, collName, docId, options )
+  delete lastConsistencyCheck[ dbName +'_'+ collName +'_'+ docId[0] ]
   writeOpsOngoing --
   return { _ok: true }
 }
@@ -291,6 +289,7 @@ async function deleteDoc( jobId, dbName, collName, docId, options ) {
   cache.rmFrmCache( dbName, collName, docId )
   await dbFile.deleteDocById( dbName, collName, docId, options )
   await indexer.deleteDoc( jobId, dbName, collName, result.doc )
+  delete lastConsistencyCheck[ dbName +'_'+ collName +'_'+ docId[0] ]
   writeOpsOngoing --
   return { _ok: true }
 }
@@ -752,3 +751,52 @@ async function listUserRights() {
   }
   return result
 }
+
+// ============================================================================
+// TODO remember clean tokens
+const lastConsistencyCheck = {}
+
+async function genConsistencyCheck( masterTokenArr ) {
+  const targetTkn = masterTokenArr[ masterTokenArr.length * Math.random() << 0 ]
+  let check = { 
+    db  : null,
+    col : null,
+    tkn : targetTkn,
+    doc : {}
+  }
+  let tries = 0
+  while ( check.col == null ) {
+    check.db  = randomKey( db )
+    check.col = randomKey( db[ check.db ].collection )
+    if ( check.col?.indexOf( 'restore' ) > 0 ) {  check.col = null } // don~t change restored dbs
+    if ( check.db == 'admin' ) { // don~t perform checks for some collections
+      if ( check.col == 'log' ) { check.col = null }
+      if ( check.col == 'session' ) { check.col = null }
+      if ( check.col == 'job' ) { check.col = null }
+      if ( check.col == 'db-metrics' ) { check.col = null }
+      if ( check.col == 'api-metrics' ) { check.col = null }
+      if ( check.col == 'user-session' ) { check.col = null }
+    }
+    if ( check.col ) {
+      if ( lastConsistencyCheck[ check.db+'_'+check.col +'_'+ check.tkn ] ) {
+        check.col = null 
+      } else {
+        lastConsistencyCheck[ check.db+'_'+check.col +'_'+ check.tkn ] = Date.now()
+      }
+    }
+    tries ++
+    if ( tries > 100 ) { return null }
+  }
+  check.doc = await dbFile.getHashesOfToken( check.db, check.col, check.tkn )
+  return check
+}
+
+async function getHashesOfToken(  dbName, collName, tkn ) {
+  // lastConsistencyCheck[ dbName +'_'+ collName +'_'+ tkn ] = Date.now()
+  return await dbFile.getHashesOfToken( dbName, collName, tkn )
+}
+
+function randomKey( obj ) {
+  var keys = Object.keys( obj )
+  return keys[ keys.length * Math.random() << 0 ]
+};

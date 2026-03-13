@@ -123,6 +123,19 @@ body {
 
 /* main */
 
+.alarmstatus {
+  color: red;
+  font-weight: bold;
+}
+.warningstatus {
+  color: orange;
+  font-weight: bold;
+}
+.okstatus {
+  color: darkgreen;
+  font-weight: bold;
+}
+
 .header-logo {
   padding-left: 13px;
 }
