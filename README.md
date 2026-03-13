@@ -88,7 +88,7 @@ for ( let doc of docArray ) {
 Check out the [API Reference](https://github.com/ma-ha/option-one-db-js-sdk/blob/master/README-SDK.md).
 
 
-## Document Collection Modes
+## Collection Indexing Modes
 
 Option-One DB supports 2 collection modes:
 
