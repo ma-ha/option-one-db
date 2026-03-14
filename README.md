@@ -62,6 +62,14 @@ The initial admin password is in the logs:
 
 Open http://${K8S-GATEWAY-IP}/option-one-db and log in.
 
+If all cluster nodes are IN "OK" state, the tokens 0..F should be distributed evenly w/o duplicates. 
+Logs or cluster GUI should show something like this:
+
+    db01:9011/db   (OK)  [ 0 3 6 9 c f ]
+    db02:9012/db   (OK)  [ 1 4 7 a d ]
+    db03:9013/db   (OK)  [ 2 5 8 b e ]
+
+
 ## JS SDK usage example
 
 This [JS SDK npm package](https://www.npmjs.com/package/option-one-db) is a wrapper for the Option One DB [REST API](https://github.com/ma-ha/option-one-db/blob/master/app/gui/docu/db-swagger.yml).  
@@ -143,7 +151,6 @@ The config parameters can be passed
 | RMQ_URL                | RabbitMQ URL for multi-node     | `"amqp://localhost"` |
 | RMQ_PREFIX             | RabbitMQ queue name prefix      | `"DB_"`              |
 | RMQ_JOB_EXCHANGE       | RabbitMQ job topic name         | `"DB_node_jobs"`     |
-| TOKEN_LEN              | Tokens are hex and the max number defines the max nodes in the cluster, TOKEN_LEN=1 max 16 nodes  |  `1` |
 
 ## Configure a Single Node DB
 
@@ -157,24 +164,19 @@ Settings required:
   
 Important: Currently it is not supported to extend a single node db to a cluster.
 
-## Max Cluster Size: Default is 48 Pods
+## Min and Max Cluster Size
 
-The minimum cluster size is equals DATA_REPLICATION value. 
-Mostly this means you need 3 pods to run a cluster. 
+You need 3 pods to start a cluster. 
 
-The maximum cluster pod count (DATA_REPLICATION=3) is defined by the TOKEN_LEN:
-- export TOKEN_LEN=1 
-  to set the max. DB pods count to 48 (= default)
-- export TOKEN_LEN=2
-  to set the max. DB pods count to 768
-- export TOKEN_LEN=3 
-  to set the max. DB pods count to 12288
-- export TOKEN_LEN=4 
-  to set the max. DB pods count to 196608
+The data is split into shards. Shards are identified by a one digit hexadecimal token (the first digit of the document id). So the data is split into 16 shards. 
+Every data chard is replicated multiple times -- by default every shard is stored on 3 pods. So having 3 pods, every pod stores all shards.
 
-A larger TOKEN_LEN also comes with more internal overhead - 
-so don't set the TOKEN_LEN to 2 or 3 or 4 without any reason!
+Adding more pods has several advantages:
+1. The load of data operations can be distributed to more hardware.
+2. Huge databases can be optimized, because each pod need to handle less data, which can speed up i.e. complex queries.
+3. Data recovery of a total failed pod or a restoring a backup will be faster.
 
+You can scale the cluster until you have 16 master nodes and 2x16 replica only nodes. So the the maximum cluster size is 48 data nodes (pods).
 
 ## Configure Replication
 
@@ -184,14 +186,14 @@ If 2 replica pods say OK, the DB transaction is committed.
 
 Resulting in these DB modes:
 
-1. `DATA_REPLICATION=3` (default)
+1. `DATA_REPLICATION=3` (default for cluster)
    ... requires min 3 DB pods initially. More are welcome, but can be added any time. Will continue to work if one pod is temporarily not available.
 2. `DATA_REPLICATION=2` (not recommended)
    requires 2 DB pods, to run some master/master mode.
 3. `DATA_REPLICATION=1`
    for single server DB.
 
-Currently it's not implemented to change the `DATA_REPLICATION` for a existing DB. 
+Currently it's not supported to change the `DATA_REPLICATION` for a existing DB. 
 
 ## Adding Pods To A Cluster
 

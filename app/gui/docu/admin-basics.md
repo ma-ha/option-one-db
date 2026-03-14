@@ -17,23 +17,40 @@ It's recommended to create (alt least one) dedicated user for the DB cluster nod
 
 ## Start Cluster ... with default config
 
-You can just deploy the StatefulSet with three pods into a Kubernetes and trust the defaults.
+*Remark: Please understand this deployment as a starting point which you need to improve and harden. I.e. this example does not contain secrets (just "env"), PDBs, network policies, resources, security policies, ...*
 
-TL;DR:
+Set up a RabbitMQ for the pod-to-pod communication: See https://www.rabbitmq.com/kubernetes/operator/quickstart-operator, login to the admin GUI and create a user and grant access to  `/` virtual hosts.
 
-    export NODE_ENV=all-local
-    export DB_CLUSTER_NAME=my-cluster
-    export DB_CLUSTER_KEY=secret
-    # start 1st db-node
-    export DB_PORT=9000
-    node app &
-    export DB_SEED_PODS=localhost:9000/db
-    # start 2nd db-node
-    export DB_PORT=9001
-    node app &
-    # start 3rd db-node
-    export DB_PORT=9002
-    node app &
+```bash
+RMQ_USER="rabbitmq_username"
+RMQ_PWD="rabbitmq_password"
+RMQ_NAMESPACE="rabbritmq_namespace"
+export RMQ_URL="amqp://${RMQ_USER}:${RMQ_PWD}@rabbitmq.${RMQ_NAMESPACE}"
+```
+This will also deploy a RabbitMQ and three database pods. 
+You can scale the cluster any time later. 
+
+```bash
+kubectl create namespace db
+export REGISTRY="mahade70"
+export ADMIN_PWD="super-secret-password"
+export MIN_READY_SECS=5  # for a rolling updates this should be higher, e.g. 60
+export VERSION="0.8"
+wget https://raw.githubusercontent.com/ma-ha/option-one-db/master/k8s-deploy/option-one-db-3node-cluster.yml
+cat option-one-db-3node-cluster.yml | envsubst | kubectl apply -n db -f -
+```
+The initial admin password is in the logs:
+
+    kubectl logs -n db option-one-db-0 -f
+
+Open http://${K8S-GATEWAY-IP}/option-one-db and log in.
+
+If all cluster nodes are IN "OK" state, the tokens 0..F should be distributed evenly w/o duplicates. 
+Logs or cluster GUI should show something like this:
+
+    db01:9011/db   (OK)  [ 0 3 6 9 c f ]
+    db02:9012/db   (OK)  [ 1 4 7 a d ]
+    db03:9013/db   (OK)  [ 2 5 8 b e ]
 
 ## Admin GUI
 
@@ -64,24 +81,19 @@ The tokens will be [[admin-replica.mn|re-distributed]], this may take some time.
 Please be patient and wait for the new node to get to the "OK" status, before adding another node.
 
 
-## Max Cluster Size: Default is 48 Pods
+## Min and Max Cluster Size
 
-The minimum cluster size is equals DATA_REPLICATION value. 
-Mostly this means you need 3 pods to run a cluster. 
+You need 3 pods to start a cluster. 
 
-The maximum cluster pod count (DATA_REPLICATION=3) is defined by the TOKEN_LEN:
-- export TOKEN_LEN=1 
-  to set the max. DB pods count to 48 (= default)
-- export TOKEN_LEN=2
-  to set the max. DB pods count to 768
-- export TOKEN_LEN=3 
-  to set the max. DB pods count to 12288
-- export TOKEN_LEN=4 
-  to set the max. DB pods count to 196608
+The data is split into shards. Shards are identified by a one digit hexadecimal token (the first digit of the document id). So the data is split into 16 shards. 
+Every data chard is replicated multiple times -- by default every shard is stored on 3 pods. So having 3 pods, every pod stores all shards.
 
-A larger TOKEN_LEN also comes with more internal overhead - 
-so don't set the TOKEN_LEN to 2 or 3 or 4 without any reason!
+Adding more pods has several advantages:
+1. The load of data operations can be distributed to more hardware.
+2. Huge databases can be optimized, because each pod need to handle less data, which can speed up i.e. complex queries.
+3. Data recovery of a total failed pod or a restoring a backup will be faster.
 
+You can scale the cluster until you have 16 master nodes and 2x16 replica only nodes. So the the maximum cluster size is 48 data nodes (pods).
 
 ## Configure Replication
 
@@ -91,14 +103,14 @@ If 2 replica pods say OK, the DB transaction is committed.
 
 Resulting in these DB modes:
 
-1. `DATA_REPLICATION=3` (default)
+1. `DATA_REPLICATION=3` (default for cluster)
    ... requires min 3 DB pods initially. More are welcome, but can be added any time. Will continue to work if one pod is temporarily not available.
 2. `DATA_REPLICATION=2` (not recommended)
    requires 2 DB pods, to run some master/master mode.
 3. `DATA_REPLICATION=1`
    for single server DB.
 
-Currently it's not implemented to change the `DATA_REPLICATION` for a existing DB. 
+Currently it's not supported to change the `DATA_REPLICATION` for a existing DB. 
 
 ## Adding Pods To A Cluster
 
@@ -197,7 +209,6 @@ The config parameters can be passed
 <tr><td style="text-align:left">RMQ_URL</td><td style="text-align:left">RabbitMQ URL for multi-node</td><td style="text-align:left"><code>"amqp://localhost"</code></td></tr>
 <tr><td style="text-align:left">RMQ_PREFIX</td><td style="text-align:left">RabbitMQ queue name prefix</td><td style="text-align:left"><code>"DB_"</code></td></tr>
 <tr><td style="text-align:left">RMQ<em>JOB</em>EXCHANGE</td><td style="text-align:left">RabbitMQ job topic name</td><td style="text-align:left"><code>"DB<em>node</em>jobs"</code></td></tr>
-<tr><td style="text-align:left">TOKEN_LEN</td><td style="text-align:left">Tokens are hex and the max number defines he max nodes in<br> the cluster, TOKEN_LEN=1 max 16 nodes</td><td style="text-align:left"><code>1</code></td></tr>
 </tbody>
 </table>
 

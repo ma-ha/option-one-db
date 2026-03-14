@@ -14,7 +14,8 @@ function init() {
   genSlave()
 }
 
-
+// n = next node in "ring"
+// m = master tokens
 const TKN_CONCEPT = [
   {},
   { '0': { m: ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'] } },
@@ -82,17 +83,105 @@ function genSlave() {
   for ( let clusterSize of [3,4,5,6,7,8] ) {
     let cluster = TKN_CONCEPT[ clusterSize ]
     for ( let nodeId in cluster ) {
-      let nodePls1 = cluster[ nodeId ].n
-      let nodePls2 = cluster[ nodePls1 ].n
-      for ( let token of cluster[ nodeId ].m ) {
-        cluster[ nodePls1 ].s.push( token )
-        cluster[ nodePls2 ].s.push( token )
-      }
+      setSlaves( cluster, nodeId )
     }
   }
-  // for ( let cluster of TKN_CONCEPT ) console.log( cluster )
+  for ( let clusterSize of [9,10,11,12,13,14,15,16] ) { // calculate token distribution and next id
+    let clusterM1 = TKN_CONCEPT[ clusterSize - 1 ]
+    let cluster = {}
+    let transferToken = null
+    let lastId = null
+    for ( let nodeId in clusterM1 ) {
+      if ( clusterM1[ nodeId ].m.length == 2 && ! transferToken) {
+        keepToken = clusterM1[ nodeId ].m[ 0 ]
+        transferToken = clusterM1[ nodeId ].m[ 1 ]
+        cluster[ nodeId ] = { id: nodeId, n: '?', m : [ keepToken], s: [] }
+      } else {
+        cluster[ nodeId ] = { id: nodeId, n: '?',  m : clusterM1[ nodeId ].m, s: [] }
+      }
+      if ( lastId ) {
+        cluster[ lastId ].n = nodeId  // set the followup node 
+      }
+      lastId = nodeId
+    }
+    cluster[ lastId ].n =  clusterSize - 1 + ''
+    cluster[ clusterSize - 1 ] = { 
+      id :  clusterSize - 1 + '',
+      n  : '0',
+      m  : [ transferToken ],
+      s: []
+    }
+    for ( let nodeId in cluster ) { // now populate slaves
+      setSlaves( cluster, nodeId )
+    }
+    TKN_CONCEPT.push( cluster )
+    // console.log( cluster )
+  }
+
+  let insNode = 0
+  let clusterM1 = TKN_CONCEPT[ 16 ]
+  for ( let clusterSize = 17; clusterSize <= 48; clusterSize ++ ) { // calculate token distribution and next id
+    // console.log( '>>', clusterSize, insNode )
+    let cluster = {}
+    let newId = null
+    let id = 0
+    for ( let nodeId in clusterM1 ) {
+      cluster[ id ] = { 
+        id : clusterM1[ nodeId ].id,
+        n  : clusterM1[ nodeId ].n,
+        m  : clusterM1[ nodeId ].m,
+        s  : []
+      }
+      if ( newId ) {
+        cluster[ newId ].n = cluster[ id ].id
+        newId = null
+      }
+      let insertNewNodeAfter = insNode + ''
+      if ( cluster[ id ].id == insertNewNodeAfter ) {
+        let newNodeId =  ( clusterSize - 1 ) + ''
+        cluster[ id ].n = newNodeId
+        id ++
+        // insert a node w/o master tokens
+        cluster[ id ] = {
+          id : newNodeId,
+          n  : '0',
+          m  : [],
+          s  : [] } 
+        newId = id
+      }
+      id ++
+    }
+    let newCluster = {}
+     // resort
+    for ( let no in cluster ) {
+      newCluster[ cluster[no].id ] = cluster[no]
+    }
+    for ( let nodeId in newCluster ) { // now populate slaves
+      setSlaves( newCluster, nodeId )
+    }
+
+    for ( let no in cluster ) {
+      cluster[no].s = newCluster[ cluster[no].id ].s
+    }
+    // console.log( cluster )
+    // console.log( newCluster )
+
+    TKN_CONCEPT.push( newCluster )
+    insNode ++
+    clusterM1 = cluster
+    if ( clusterSize == 32 ) { insNode = 0 }
+  }
+  // process.exit()
 }
 
+function setSlaves( cluster, nodeId ) {
+  let nodePlus1 = cluster[ nodeId ].n   // next node in ring
+  let nodePlus2 = cluster[ nodePlus1 ].n // 2nd next node in ring
+  for ( let token of cluster[ nodeId ].m ) {
+    cluster[ nodePlus1 ].s.push( token )
+    cluster[ nodePlus2 ].s.push( token )
+  }
+}
 
 function nodes( count ) {
   return TKN_CONCEPT[ count ]
