@@ -1,3 +1,6 @@
+# 0.9.1/2
+- pkg updates
+
 # 0.9.0
 - check data consistency
 - repair inconsistent tokens
