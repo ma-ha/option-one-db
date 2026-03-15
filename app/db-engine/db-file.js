@@ -871,7 +871,7 @@ async function getChecksum( fileName, hashType = 'sha1' ) {
     const data = await readFile( fileName )
     return crypto.createHash( hashType ).update( data, 'utf8' ).digest('base64url');
   } catch ( exc ) { 
-    log.warn( 'getChecksum', file, exc.message )
+    log.warn( 'getChecksum', fileName, exc.message )
     return '-'
   }
 }

@@ -145,7 +145,7 @@ async function creInsertMsg( r, doc ) {
 }
 
 async function creDocByIdMsg( r, id ) {
-  log.info( r.txnId, 'DB creDocByIdMsg', r.db, r.coll, id ) 
+  log.debug( r.txnId, 'DB creDocByIdMsg', r.db, r.coll, id ) 
   let msg = {
     op    : 'get by id',
     txnId : r.txnId,

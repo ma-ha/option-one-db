@@ -1,11 +1,11 @@
 # Don't panic
 
 Regardless if the cluster is in panic or there are some corrupt files:
-Everything can be solved.
+Mostly everything can be solved.
 
 But: **No Backup ... no cry.** If you don't have backups, perhaps it's a good idea to create one now: *Admin GUI -> Backup -> Execute Backup*
 
-Important: Do you have the latest version and all hot fixes deployed.
+Important: Do you have the latest version and all hot fixes deployed?
 Nope? You should!!
 
 For all further steps we assume a K8s deployment (but classic HW or VMs work similar).

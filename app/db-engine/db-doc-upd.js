@@ -65,7 +65,7 @@ async function replaceOneDoc( txnId, dbName, collName, docId, doc, opt ) {
   let collSPec = await persistence.getCollSpec( dbName, collName )
   let origDoc = await persistence.getDocById( dbName, collName, docId )
   for ( let idxField in collSPec.idx ) {
-    if ( origDoc.doc[ idxField ] !== doc[ idxField ] ) {
+    if (! origDoc.doc || origDoc.doc[ idxField ] !== doc[ idxField ] ) {
       changedIdxField.push( idxField )
     }
   }

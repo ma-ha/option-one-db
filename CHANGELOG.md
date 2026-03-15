@@ -1,6 +1,7 @@
 # 0.9.0
-- CheckDataConsistency
-- cluster status
+- check data consistency
+- repair inconsistent tokens
+- cluster status update fix
 - support up to 48 cluster pods
 
 # 0.8.6/7

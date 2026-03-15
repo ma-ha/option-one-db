@@ -333,24 +333,117 @@ async function sendDataOk( ) {
 async function checkDataConsistency( check ) {
   try {
     if ( check.frm == nodeId ) { 
-      log.debug( 'checkDataConsistency ignore own message' )
+      log.debug( check.txnId, 'checkDataConsistency ignore own message' )
       return 
     }
-    log.debug( 'checkDataConsistency ... ', check.db, check.col, check.tkn )
+    let consistent = true
+    log.debug( check.txnId, 'checkDataConsistency ... ', check.db, check.col, check.tkn )
     let myDocs = await persistence.getHashesOfToken( check.db, check.col, check.tkn )
-    if ( myDocs.length != check.doc.length ) { // TODO better check if equal
-      log.info( 'checkDataConsistency >> WARN doc count mismatch', check.db, check.col, check.tkn )
-    } else {
-      log.info( 'checkDataConsistency >> OK doc count', check.db, check.col, check.tkn )
-    }
-    for ( const id in check.docs ) {
-      if ( check.docs[id] != myDocs[id] ) {
-        log.info( 'checkDataConsistency >> WARN doc inconsistent', check.db, check.col, id, check.docs[id], myDocs[id] )
-        // TODO sync data record 
+    // log.info( '<', check.doc )
+    // log.info( '>', myDocs )
+    // if ( myDocs.length != check.doc.length ) { // TODO better check if equal
+    //   log.warn( check.txnId, 'checkDataConsistency >> WARN doc count mismatch', check.db, check.col, check.tkn )
+    //   consistent = false
+    // }
+    let inconsistentIDs = []
+    for ( const id in check.doc ) {
+      if ( ! myDocs[ id ] ) {
+        log.warn( check.txnId, 'checkDataConsistency >> WARN doc missing', check.db, check.col, id )
+        inconsistentIDs.push( id )
+        consistent = false
+      } else if ( check.doc[id] != myDocs[id] ) {
+        log.warn( check.txnId, 'checkDataConsistency >> WARN doc inconsistent', check.db, check.col, id )
+        inconsistentIDs.push( id )
+        consistent = false
       }
     }
+    for ( const id in myDocs ) {
+      if ( ! check.doc[ id ] ) {
+        log.warn( check.txnId, 'checkDataConsistency >> WARN doc only local pod', check.db, check.col, id )
+        inconsistentIDs.push( id )
+        consistent = false
+      }
+    }
+    if ( consistent ) {
+      log.info( check.txnId, 'checkDataConsistency >> OK', check.db, check.col, check.tkn )
+    } else {
+      await sleep( Math.floor( 5000 * Math.random() ) )
+      for ( const id of inconsistentIDs ) {
+        reSyncDoc( check.txnId, check.db, check.col, id ) 
+      }  
+    }
   } catch ( exc ) {
-    log.error( dbReq.data.txnId, 'DB process', exc, dbReq )
+    log.error( check.txnId, 'checkDataConsistency', exc )
+  }
+}
+
+const sleep = ms => new Promise( r => setTimeout( r, ms ) )
+
+
+async function reSyncDoc( txnId, dbName, collName, id ) {
+  try {
+    log.info( txnId, 'Trying to sync document', dbName, collName, id  )
+    let qryMsg = await dbDocCre.creDocByIdMsg( { db:dbName, coll:collName, txnId: txnId }, id )
+    pubsub.sendRequest( txnId, id[0], qryMsg )
+    let result = await pubsub.getReplies( txnId )
+    if ( result._ok ) {
+      let docs = {}
+      let shaQuorum = {}
+      let shaMax = null
+      let i = 0
+      for ( let binMsg of result.replyMsg ) try {
+        let msg = ( binMsg.content ? JSON.parse( binMsg.content.toString() ) : binMsg )
+        // log.info( 'msg', msg )
+        if ( ! msg.doc ) { continue }
+        let sha2 = await helper.checksum( JSON.stringify( msg.doc ) )
+        docs[ i ] = {
+          data : msg.doc,
+          dt   : msg.doc._chg,
+          sha2 : sha2
+        }
+        if ( ! shaQuorum[ sha2 ] ) { shaQuorum[ sha2 ] = { cnt : 0, no: [] } }
+        shaQuorum[ sha2 ].cnt ++
+        shaQuorum[ sha2 ].doc = msg.doc
+        shaQuorum[ sha2 ].no.push( msg.node)
+        if ( ! shaMax || shaQuorum[ sha2 ].cnt > shaQuorum[ shaMax ].cnt ) {
+          shaMax = sha2
+        }
+        i ++
+      } catch ( exc ) { log.warn( txnId, 'Error with document', dbName, collName, id, exc.message ) }
+      log.debug( txnId, 'Inspect documents:', docs )
+      log.debug( txnId, 'Trying to sync document shaMax:', shaMax )
+      if ( shaQuorum.length == 1 && shaQuorum[ shaMax ].cnt > REPLICATION_QUORUM ) { 
+        log.info( txnId, 'seemed sync done by other node' )
+        return
+      }
+      if ( shaQuorum[ shaMax ].cnt >= REPLICATION_QUORUM ) {
+        log.info( txnId, 'Trying to sync document shaMax quorum ok:', shaQuorum[ shaMax ].cnt )
+        const txnIdUpd = helper.getTxnId( 'DCS' )
+        let token  = helper.extractToken( id )
+        let updMsg = {
+          op    : 'replace one',
+          txnId : txnIdUpd,
+          db    : dbName,
+          col   : collName,
+          docId : id,
+          doc   : shaQuorum[ shaMax ].doc
+        }
+        pubsub.sendRequest( txnIdUpd, token, updMsg )
+        let syncResult = await pubsub.getReplies( txnIdUpd )
+        // let syncResult = await dbDocUpd.replaceOneDoc( txnId, dbName, collName, id,  shaQuorum[ shaMax ].doc )
+        if ( syncResult._ok ) {
+          log.warn( txnId, 'Docs replaced by quorum, OK' )
+        } else {
+          log.error( txnId, 'Docs replaced by quorum, error', syncResult )
+        }
+      } else { // try to find newest
+        log.error( txnId, 'FAILED to sync document shaMax quorum NOT OK', shaQuorum[ shaMax ].cnt )
+      }
+    } else {
+      log.error( txnId, 'FAILED to sync document', dbName, collName, id )
+    }
+  } catch ( exc ) {
+    log.error( txnId, 'reSyncDoc', exc )
   }
 }
 

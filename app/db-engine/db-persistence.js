@@ -100,7 +100,7 @@ async function terminate() {
     clearInterval( reloadDbTreeInterval )
     while ( writeOpsOngoing > 0 ) {
       log.info( 'Terminate persistence engine...', writeOpsOngoing )
-      sleep( 300 )
+      await sleep( 300 )
     }
     await indexer.terminate()
     await indexer.syncIndexCacheToFile()
@@ -770,6 +770,7 @@ async function genConsistencyCheck( masterTokenArr ) {
     check.col = randomKey( db[ check.db ].collection )
     if ( check.col?.indexOf( 'restore' ) > 0 ) {  check.col = null } // don~t change restored dbs
     if ( check.db == 'admin' ) { // don~t perform checks for some collections
+      // check.col = null // only for testing
       if ( check.col == 'log' ) { check.col = null }
       if ( check.col == 'session' ) { check.col = null }
       if ( check.col == 'job' ) { check.col = null }

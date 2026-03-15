@@ -340,7 +340,7 @@ async function sendRequestAllNodes( txnId, reqData ) {
   sendExchDataUpdate( exchangeAllNodes, txnId, null, reqData )
 }
 
-async function sendExchDataUpdate( exchange, txnId, token, reqData ) {
+async function sendExchDataUpdate( exchange, txnId, token, reqData ) { // TODO why its called before channel init done?
   log.debug( txnId, 'RMQ publish...', exchange, reqData )
   if ( cfg.MODE == "SINGLE_NODE" ) { // don't need a message broker
     log.debug( 'SINGLE_NODE: sendExchDataUpdate', txnId, token, reqData )
@@ -361,19 +361,21 @@ async function sendExchDataUpdate( exchange, txnId, token, reqData ) {
 
   try {
     log.debug( txnId, 'RMQ publish', exchange, replyQueue )
-    channel.publish( exchange, '', Buffer.from( JSON.stringify( reqData ) ),
-      { timestamp     : Date.now(), 
-        contentType   : 'application/json',
-        persistent    : true,
-        correlationId : txnId,
-        replyTo       : replyQueue,
-        headers: {
-          from  : NODE_NAME,
-          token : token
+    if ( channel ) {
+      channel.publish( exchange, '', Buffer.from( JSON.stringify( reqData ) ),
+        { timestamp     : Date.now(), 
+          contentType   : 'application/json',
+          persistent    : true,
+          correlationId : txnId,
+          replyTo       : replyQueue,
+          headers: {
+            from  : NODE_NAME,
+            token : token
+          }
         }
-      }
-    )
-    incMetric( Q_MSG_OUT )
+      )
+      incMetric( Q_MSG_OUT )
+    }
   } catch (err) { 
     log.error( txnId, 'RMQ sendExchDataUpdate', err ) 
     process.exit()

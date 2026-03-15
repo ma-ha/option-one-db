@@ -26,6 +26,7 @@ module.exports = {
   getTxnId,
   randomChar,
   randomHex,
+  checksum,
 
   getKeyVal,
 
@@ -386,6 +387,16 @@ function getTokenFromStr( str ) {
   return strHex.substring( 0, TKN_LEN )
 }
 
+
+async function checksum( data ) {
+  try {
+    const crypto = require( 'crypto' )
+    return crypto.createHash( 'sha1' ).update( data, 'utf8' ).digest('base64url');
+  } catch ( exc ) { 
+    log.warn( 'checksum', exc.message )
+    return '-'
+  }
+}
 
 //=============================================================================
 
