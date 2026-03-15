@@ -52,7 +52,7 @@ kubectl create namespace db
 export REGISTRY="mahade70"
 export ADMIN_PWD="super-secret-password"
 export MIN_READY_SECS=5  # for a rolling updates this should be higher, e.g. 60
-export VERSION="0.8"
+export VERSION="0.9"
 wget https://raw.githubusercontent.com/ma-ha/option-one-db/master/k8s-deploy/option-one-db-3node-cluster.yml
 cat option-one-db-3node-cluster.yml | envsubst | kubectl apply -n db -f -
 ```
