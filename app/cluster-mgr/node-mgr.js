@@ -7,6 +7,7 @@ const pubsub   = require( './pubsub' )
 const db       = require( '../db-engine/db' )
 const manageDB = require( '../db-engine/db-mgr' )
 const backup   = require( '../db-engine/db-backup' )
+const metrics  = require( './node-api-metrics' )
 
 module.exports = {
   init,
@@ -34,16 +35,17 @@ module.exports = {
 
   dbInitDone,
   isInitOK,
-  getApiMetricKeys,
-  getApiMetrics,
-  getApiMetricsForTS,
-  setApiMetric,
-  setApiMetricsForTS,
-  incApiMetric,
-  incApiMetricsForTS,
-  prepTimestamp,
-  loadMetrics,
-  saveMetrics
+
+  getApiMetricKeys   : metrics.getApiMetricKeys,
+  getApiMetrics      : metrics.getApiMetrics,
+  getApiMetricsForTS : metrics.getApiMetricsForTS,
+  setApiMetric       : metrics.setApiMetric,
+  setApiMetricsForTS : metrics.setApiMetricsForTS,
+  incApiMetric       : metrics.incApiMetric,
+  incApiMetricsForTS : metrics.incApiMetricsForTS,
+  prepTimestamp      : metrics.prepTimestamp,
+  loadMetrics        : metrics.loadMetrics,
+  saveMetrics        : metrics.saveMetrics
 }
 
 let helper = null
@@ -64,7 +66,6 @@ let cfg = {
 }
 
 let fastStartInterval     = null
-let saveApiMetricInterval = null
 let startBackupInterval   = null 
 
 async function init( configParams, options ) { 
@@ -75,11 +76,13 @@ async function init( configParams, options ) {
   cfg.OWN_NODE_ADDR = DB_POD_NAME +':'+ cfg.PORT + cfg.API_PATH
 
   log.info( 'Init Cluster / OWN_NODE_ADDR', cfg.OWN_NODE_ADDR )
+
+  metrics.init( cfg )
   helper = await statMgr.init( cfg )
   tokenMgr.init()
   if ( options && options.testingOnly ) { return }
   
-  await pubsub.init( cfg.OWN_NODE_ADDR, cfg,  incApiMetric, jobDispatcher )
+  await pubsub.init( cfg.OWN_NODE_ADDR, cfg,  metrics.incApiMetric, jobDispatcher )
   // await pubsub.init( cfg.OWN_NODE_ADDR )
   await pubsub.subscribeJobs( jobDispatcher ) 
 
@@ -92,7 +95,6 @@ async function init( configParams, options ) {
   }
   setInterval( broadcastNodeUpdate, cfg.NODE_SYNC_INTERVAL_MS )
   setInterval( sendStatusMetric, cfg.MONITOR_STATUS_SEC * 1000 )
-  saveApiMetricInterval = setInterval( saveApiMetric, 60*1000 )
   startBackupInterval = setInterval( startBackup, 5500 )
 
   let s = statMgr.getOwnNodeStatus()
@@ -111,10 +113,10 @@ async function startBackup() {
 async function terminate() {
   log.info( 'Terminate node manager...')
   statMgr.setStatus( 'Restarting' )
+  await metrics.terminate()
   await broadcastNodeUpdate()
   await pubsub.terminate()
   await db.terminate()
-  clearInterval( saveApiMetricInterval )
 }
 
 // ----------------------------------------------------------------------------
@@ -213,7 +215,7 @@ function ownNodeAddr( ) {
 }
 
 // ============================================================================
-// here update calls are processed
+// here "update" calls are processed
 
 async function updNode( task ) {
   const fromNode = task.from
@@ -311,7 +313,7 @@ async function broadcastNodeUpdate( options = {}) {
     if ( own.status == 'OK' && syncData.db.admin && syncData.db.admin .c['api-metrics'] ) {
       if ( ! initDone ) {
         log.info( 'Init metrics')
-        loadMetrics()
+        metrics.loadMetrics()
         // if ( ! cfg.MODE == "SINGLE_NODE" ) {
           db.startConsistencyChecks( statMgr.ownNodeId(), statMgr.getOwnTokens() )
         // }
@@ -381,185 +383,14 @@ function getDbTask() {
 }
 
 // ===========================================================================
-const API_METRICS = ['GET','DELETE','PUT','POST','sync','QMSGIN','QMSGOUT','QJOBIN','QJOBOUT']
-function getApiMetricKeys() {
-  return API_METRICS
-}
 
-let apiMetrics = {}
-
-function getApiMetrics() {
-  return apiMetrics
-}
-
-function getApiMetricsForTS( ts ) {
-  return apiMetrics[ ts ]
-}
-
-function setApiMetric( metric ) {
-  apiMetrics = metric
-}
-
-function setApiMetricsForTS( ts, metric  ) {
-  apiMetrics[ ts ] = metric
-}
-
-function incApiMetricsForTS( ts, idx  ) {
-  apiMetrics[ ts ][ idx ] ++
-}
-
-async function incApiMetric( idx ) {
-  // log.info( 'incApiMetric', idx, JSON.stringify( apiMetrics ) )
-  let ts = await prepTimestamp()
-  if ( ! getApiMetricsForTS( ts ) ) {
-    setApiMetricsForTS( ts, [ 0,0,0,0,0,0,0,0,0 ] )
-  }
-  incApiMetricsForTS( ts, idx )
-}
-
-
-let initDone = false 
-let insertMetric = true
-let needLoadMetric = true
-
-
-async function prepTimestamp() {
-  // load after re-start:
-  let ownStatus = statMgr.getOwnNodeStatus()
-  if ( ! ownStatus ) { return 0 }
-  // if ( ! initDone && ownStatus.status == 'OK' ) {
-  //   await  loadMetrics()
-  // }
-  let timestamp = Math.floor( Date.now() / 60000 ) 
-  if ( ! getApiMetricsForTS( timestamp ) ) {
-    setApiMetricsForTS( timestamp, [ 0,0,0,0,0,0,0,0,0 ] )
-
-    // if ( ownStatus.status == 'OK' ) {
-    //   // save metrics
-    //   await saveMetrics()
-    // }
-  }
-  return timestamp
-}
-
-
-let metricId = null
+let initDone = false
 
 function dbInitDone() {
-  insertMetric = true
+  metrics.dbReady()
   initDone = true
 }
 
 function isInitOK() {
   return initDone
 }
-
-async function saveApiMetric() {
-  log.debug( 'saveApiMetric...' )
-  if ( ! await manageDB.getColl( 'admin', 'api-metrics' ) ) { return }
-  let ownStatus = statMgr.getOwnNodeStatus()
-  if ( ownStatus?.status == 'OK' ) {
-    if ( needLoadMetric ) {
-      await loadMetrics()
-      needLoadMetric = false
-    }
-    saveMetrics()
-  }
-}
-
-async function loadMetrics() {
-  if ( ! await manageDB.getColl( 'admin', 'api-metrics' ) ) { return }
-  try {
-    log.info( 'loadMetrics...' )
-    initDone = true
-    let metricsResult = await db.findOneDoc( {
-      db :  'admin', 
-      coll : 'api-metrics',
-      txnId  :db.getTxnId( 'MXL' ),
-      dt : Date.now(),
-    }, { podName: ownNodeAddr() } ) 
-    if ( metricsResult.doc  ) { 
-      log.debug( '>>> loadMetrics', metricsResult )
-      setApiMetric( metricsResult.doc.apiMetrics )
-      metricId = metricsResult.doc._id
-      insertMetric = false
-    } 
-    initDone = true
-  } catch ( exc ) { log.warn( 'loadMetrics find', exc.message )}
-}
-
-
-async function saveMetrics() {
-  if ( ! initDone ) { return }
-  try {  
-    let ownTokens = statMgr.getOwnTokens()
-    let nodeStatus = statMgr.getOwnNodeStatus()
-    let tokenStr = ''
-    for ( let tkn in ownTokens ) {
-      tokenStr += tkn + ' '
-    }
-    tokenStr = tokenStr.trim()
-    if ( insertMetric ) {
-      log.debug( 'saveMetrics >>> insert...' )
-      let result = await db.insertOneDoc(
-        { 
-          db    : 'admin', 
-          coll  : 'api-metrics',
-          txnId :  db.getTxnId( 'MXI' )
-        },
-        { 
-          podName: ownNodeAddr(),
-          status : nodeStatus.status,
-          tokens : tokenStr,
-          nodeId : statMgr.ownNodeId(),
-          apiMetrics : getApiMetrics(),
-          keys       : getApiMetricKeys()
-        } 
-      ) 
-      insertMetric = false
-    } else {
-      log.debug( 'saveMetrics >>> update' )
-
-      // clean up old metrics
-      let minTS = Math.floor(  Date.now()  / 60000 ) - 24*60
-      let apiMetrics = getApiMetrics()
-      for ( let ts in apiMetrics ) {
-        if ( parseInt( ts ) < minTS ) {
-          delete apiMetrics[ ts ]
-        } 
-      }
-
-      await db.updateOneDoc( 
-        { 
-          db    : 'admin', 
-          coll  : 'api-metrics',
-          update: { 
-            $set: { 
-              apiMetrics : apiMetrics,
-              status : nodeStatus.status,
-              tokens : tokenStr,
-              nodeId : statMgr.ownNodeId()
-
-            }
-          },
-          txnId :  db.getTxnId( 'MXU' )
-        },
-        { _id : metricId } 
-      )
-      //log.info( '>>> update', upp )
-    }
-
-  } catch ( exc ) { log.warn( 'prepTimestamp', exc )}
-}
-
-
-
-// function randomChar( len ) {
-//   var chrs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-//   var token =''
-//   for ( var i = 0; i < len; i++ ) {
-//     var iRnd = Math.floor( Math.random() * chrs.length )
-//     token += chrs.substring( iRnd, iRnd+1 )
-//   }
-//   return token
-// }

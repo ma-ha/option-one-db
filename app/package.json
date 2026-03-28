@@ -1,6 +1,6 @@
 {
   "name": "option-one-db",
-  "version": "0.9.3",
+  "version": "0.9.6",
   "description": "Cloud native high scalable document DB",
   "main": "index.js",
   "scripts": {

@@ -133,10 +133,12 @@ async function readNodeInfo( ) {
   if ( fs.existsSync( dtaDir + '/node.json' ) ) {
     log.info('... reading node.json')
     let token = {}
-    if ( fs.existsSync( dtaDir + '/token.json' ) ) {
-      log.info('... reading token.json')
-      token = JSON.parse( await readFile( dtaDir + '/token.json' ) )
-    }
+    try {
+      if ( fs.existsSync( dtaDir + '/token.json' ) ) {
+        log.info('... reading token.json')
+        token = JSON.parse( await readFile( dtaDir + '/token.json' ) )
+      }
+    } catch( exc ) { log.warn( 'readNodeInfo token.json', exc.message )}
     try {
       let status = JSON.parse( await readFile( dtaDir + '/node.json' ) )
       if (  status.upd ) {
@@ -527,22 +529,26 @@ function setNodeStatus( node, newStatus ) {
 // ===========================================================================
 let oldNodeStr = ''
 function printNodesShort( txt ) {
-  let nodeStr = ''
+  let nodeStrArr = []
   for ( let nodeName in clusterNodes ) {
     let no = clusterNodes[ nodeName ]
-    nodeStr += nodeName + '   (' + no.status + ')  [ '
+    let oneNode = nodeName + '   (' + no.status + ')  [ '
     for ( let tn in no.token ) {
       let t = no.token[ tn ]
       if ( t.handover === true ) {
-        nodeStr += tn + '* '
+        oneNode += tn + '* '
       } else  if ( t.handover  ) {
-        nodeStr += tn + '['+t.handover+'] '
+        oneNode += tn + '['+t.handover+'] '
       } else {
-        nodeStr += tn + ' '
+        oneNode += tn + ' '
       }
     }
-    nodeStr += ']\n'
+    oneNode += ']'
+    nodeStrArr.push( oneNode )
+    // nodeStr += ']\n'
   }
+  nodeStrArr.sort()
+  let nodeStr = nodeStrArr.join( '' )
   if ( nodeStr != oldNodeStr ) {
     log.warn( txt + '\n' + nodeStr )
     oldNodeStr = nodeStr
