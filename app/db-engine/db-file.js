@@ -488,8 +488,8 @@ async function loadDocById( dbName, collName, docId, options ) {
       return { _error: 'Not found' }
     }
   } catch ( exc ) { 
-    log.error( 'loadDocById ', dbName+'/'+ collName+'/'+docId, exc)
-    return errorMsg( 'loadDocById '+dbName+'/'+ collName+'/'+docId, exc ) 
+    log.error( 'loadDocById ', dbName+'/'+ collName+'/'+docId, exc.message )
+    return errorMsg( 'loadDocById '+dbName+'/'+ collName+'/'+docId, exc.message ) 
   }
 }
 
