@@ -2,6 +2,7 @@ const log     = require( '../helper/logger' ).log
 const hash    = require( 'hash-sum' )
 const api     = require( '../helper/api-client' )
 const helper  = require( './db-helper' )
+const ai      = require( './db-ai' )
 const pubsub  = require( '../cluster-mgr/pubsub' )
 
 const persistence = require( './db-persistence' )
@@ -75,8 +76,10 @@ async function findDocs( r, qry ) {
   try {
     let query = ( typeof qry  == 'string' ? JSON.parse( qry ) : qry )
     let findRequest = await creFindMsg( r, query )
-    if ( r.db != 'admin' )
-      log.info( r.txnId, 'findRequest',  r.db, r.coll, query, findRequest.op )
+    if ( r.db != 'admin' ) {
+      log.debug( r.txnId, 'findRequest',  r.db, r.coll, query, findRequest.op )
+      log.info( r.txnId, 'findRequest',  r.db, r.coll, findRequest.op )
+    }
     if ( findRequest._error ) { return findRequest }
     // if ( findRequest._error ) { 
     //   res.status( st.BAD_REQUEST ).send( findRequest ) 
@@ -225,15 +228,22 @@ async function getAllDoc( txnId, dbName, collName, query, proj, options={}, isId
     if ( isIdxQry ) {
       let collIdx = await persistence.geCollIdx( dbName, collName )
       if ( collIdx._ok ) {
-        let idxScan = await persistence.findDocCandidates( txnId, dbName, collName, query,  collIdx.idx )
+        // let d1 = Date.now()
+        let idxScan = await persistence.findDocCandidates( txnId, dbName, collName, query, collIdx.idx )
+        // let d2 = Date.now()
+        // log.info( 'findDocCandidates', d2-d1, 'ms' )
+        log.debug( 'result idxScan', idxScan)
         if ( idxScan ) {
           if ( idxScan._error ) { return idxScan }
           if ( idxScan.pureIdx ) {
-            log.debug( txnId, 'getAllDoc pure index query result', query,  idxScan.ids.length )
+            log.debug( txnId, 'getAllDoc pure index query result', query,  idxScan )
             let result = {
               doc   : [],
               docId : idxScan.ids,
               _ok   : true
+            }
+            if ( idxScan.q ) {
+              result.q = idxScan.q
             }
             if ( ! options.idsOnly ) {
               let cnt = 0
@@ -480,6 +490,8 @@ async function creFindMsg( r, query ) {
     
     log.debug( r.txnId, 'DB find', 'by Idx' )
     findRequest.op = 'find by IDX'
+    await addAiSearchEmbeddings( r.txnId, findRequest.qry )
+
     // result = await findByIdxQry( dbName, collName, colSpec, query, options )
     return findRequest
 
@@ -489,6 +501,17 @@ async function creFindMsg( r, query ) {
     findRequest.op = 'find full scan'
     return findRequest
 
+  }
+}
+
+async function addAiSearchEmbeddings( txnId, query ) {
+  for ( let qKey in query ) {
+    if ( ['$and','$not','$nor','$or'].includes( qKey ) ) {
+      await addAiSearchEmbeddings( txnId, query[ qKey ] )
+    } else if ( typeof query[ qKey ] === 'object'  &&  query[ qKey ][ '$ai' ] ) {
+      log.debug( txnId, 'Get embedding:', qKey,  query[ qKey ][ '$ai' ] )
+      query[ qKey ].emb = await ai.getEmbedding( txnId, 'embeddinggemma', query[ qKey ][ '$ai' ] )
+    }
   }
 }
 

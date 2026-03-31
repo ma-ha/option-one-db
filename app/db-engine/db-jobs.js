@@ -152,7 +152,7 @@ async function storeDataBatch( job ) {
 
     case 'InsertLocally' :
       for ( let doc in job.data ) {
-        persistence.insertDocPrep( job.jobId, job.db, job.coll, doc ) 
+        persistence.insertDoc( job.jobId, job.db, job.coll, doc ) 
       }
       break
 

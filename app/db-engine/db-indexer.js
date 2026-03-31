@@ -3,11 +3,13 @@ const log   = require( '../helper/logger' ).log
 const fs    = require( 'fs' )
 const { mkdir, writeFile, readFile,  rmdir } = require( 'node:fs/promises' )
 const dbFile  = require( './db-file' )
+const ai      = require( './db-ai' )
 
 module.exports = {
   init, 
   updateIndex,
   writeIndexDef,
+  writeEmbeddingFile,
   addDocToIndex,
   updateDocIndex,
   deleteDoc,
@@ -21,7 +23,8 @@ module.exports = {
 // ============================================================================
 
 let cfg = {
-  DATA_DIR: './db/'
+  DATA_DIR: './db/',
+  EMBEDDING_GEMMA_API: null
 }
 
 let indexSyncInterval = null
@@ -29,6 +32,7 @@ let indexSyncInterval = null
 function init( configParams ) {
   // log.info( 'persistence.init', configParams )
   cfgHlp.setConfig( cfg, configParams )
+  ai.init( configParams )
   indexSyncInterval = setInterval( syncIndexCacheToFile, 10000 )
 }
 
@@ -63,12 +67,22 @@ async function updateDocIndex( jobId, dbName, collName, changedIdxField, doc ) {
     log.info( jobId, 'updateDocIndex', dbName, collName, changedIdxField, doc._id )
     let index = await loadIndexDef( jobId, dbName, collName )
     for ( let idxField of changedIdxField ) {
-      // step 1: remove old index id
-      let idx = await readIndexFile( jobId, dbName, collName, idxField, doc._token )
-      removeDocIdFromIdx( jobId, idx, doc._id )
-      await writeIndexFile( jobId, dbName, collName, idxField,  doc._token, idx )
-      // step 2: re-add id to index
-      await addIdxField( jobId, dbName, collName, index, idxField, doc )
+      if ( index[ idxField ].AI ) {
+
+        let text = doc[ idxField ] // TODO support paths
+        let embeddings = await ai.getEmbedding( jobId, 'embeddinggemma', text )
+        await writeEmbeddingFile( jobId, dbName, collName, idxField, doc._id, embeddings ) 
+
+      } else {
+
+        // step 1: remove old index id
+        let idx = await readIndexFile( jobId, dbName, collName, idxField, doc._token )
+        removeDocIdFromIdx( jobId, idx, doc._id )
+        await pushIndex( jobId, dbName, collName, idxField,  doc._token, idx )
+        // step 2: re-add id to index
+        await addIdxField( jobId, dbName, collName, index, idxField, doc )
+
+      }
     }
   } catch ( exc ) {
     log.error( jobId, 'updateDocIndex', dbName, collName, doc, exc )
@@ -84,7 +98,7 @@ async function deleteDoc( jobId, dbName, collName, doc ) {
       let idx = await readIndexFile( jobId, dbName, collName, idxField, doc._token )
       let needWrite = removeDocIdFromIdx( jobId, idx, doc._id )
       if ( needWrite ) {
-        await writeIndexFile( jobId, dbName, collName, idxField, doc._token, idx )
+        await pushIndex( jobId, dbName, collName, idxField, doc._token, idx )
       }
     }
   } catch ( exc ) {
@@ -161,11 +175,11 @@ async function addToIdxFile( jobId, dbName, collName, idxField, token, docId, va
   if ( idx[ valStr ] ) {
     if ( ! idx[ valStr ].includes( docId ) ) {
       idx[ valStr ].push( docId )
-      await writeIndexFile( jobId, dbName, collName, idxField, token, idx )
+      await pushIndex( jobId, dbName, collName, idxField, token, idx )
     }
   } else {
     idx[ valStr ] = [ docId ]
-    await writeIndexFile( jobId, dbName, collName, idxField, token, idx )
+    await pushIndex( jobId, dbName, collName, idxField, token, idx )
   }  
 }
 
@@ -211,6 +225,7 @@ function getIndexedProperties( doc, index  ) {
   log.debug(  'i', doc,  index )
   let idxVals = { needStore: false, key: {} }
   for ( let idxKey in index ) {
+    if ( index[ idxKey ].AI ) { continue }
     let val = getVal( doc, idxKey )
     log.debug( 'ii', idxKey, val )
     if ( val ) {
@@ -233,6 +248,11 @@ async function updateIndex( jobId, dbName, collName, updIdx ) {
     if ( ! updIdx ) {
       log.warn( jobId, 'updateIndex ignore', dbName, collName, updIdx )
       return  { _ok: false, _error: 'updIdx undefined' }
+    }
+    for ( let fld in updIdx ) {
+      if ( updIdx[ fld ].AI == 'embedding-gemma' && ! cfg.EMBEDDING_GEMMA_API ) {
+        return { _ok: false, _error: 'AI indexing not supported'}
+      }
     }
     let oldIdx = await loadIndexDef( jobId, dbName, collName )
     // check for deleted indexes:
@@ -269,7 +289,7 @@ async function delIndex( jobId, dbName, collName, idxName ) {
 // ============================================================================
 
 async function reIndex( jobId, dbName, collName, idx ) {
-  log.info( jobId, 'reIndex', dbName, collName )
+  log.warn( jobId, 'reIndex starting...', dbName, collName )
   let colDir = dbFile.collPath( dbName, collName )
   let docDir = colDir +'doc/'
 
@@ -295,63 +315,74 @@ async function reIndex( jobId, dbName, collName, idx ) {
     if ( ! doc._token ) { continue }
 
     for ( let idxField in idx ) {
-      let idxFileName =  idxField +'/'+ idxField +'_'+ doc._token +'.json'
-      if ( ! indexFile[ idxFileName ] ) { indexFile[ idxFileName ] = {} }
-
       let val = getVal( doc, idxField )
       // log.info( jobId, 'reIndex field', idxField, val  )
 
-      if ( idx[ idxField ].expiresAt ) {
-        // log.info( jobId, 'reIndex expiresAt', idxField, val, typeof val  )
-        try {
+      if ( idx[ idxField ].AI == 'embedding-gemma' && cfg.EMBEDDING_GEMMA_API ) {
+
+        // TODO get embedding
+        let embeddings = await ai.getEmbedding( jobId, 'embeddinggemma', val )
+        //[-0.18476306,  0.00167681, 0.03773484, -0.07996225, -0.02348064, 0.00976741, ... ]
+
+        await writeEmbeddingFile( jobId, dbName, collName, idxField, doc._id, embeddings ) 
+
+      } else { // classic indexes
+
+        let idxFileName =  idxField +'/'+ idxField +'_'+ doc._token +'.json'
+        if ( ! indexFile[ idxFileName ] ) { indexFile[ idxFileName ] = {} }
+  
+        if ( idx[ idxField ].expiresAt ) {
+          // log.info( jobId, 'reIndex expiresAt', idxField, val, typeof val  )
+          try {
+            if ( val != null && val != undefined ) {
+              if ( typeof val == 'number' ) {
+                // log.info( jobId, 'expiresAt', getTimeHrStr( val ), doc._id  )
+                addDocId( indexFile[ idxFileName ], getTimeHrStr( val ), doc._id )
+              } else if  ( val instanceof Date ) {
+                addDocId( indexFile[ idxFileName ], getTimeHrStr( val.getTime() ), doc._id )
+              } else if  ( typeof val == 'string'  ) {
+                let dt = new Date( val )
+                addDocId( indexFile[ idxFileName ], getTimeHrStr( dt.getTime() ), doc._id )
+              } else {
+                log.warn( jobId, 'reIndex expiresAfter unexpected value',  doc._id, idxField, val )
+              }
+            }
+          } catch ( exc ) { log.warn( jobId, 'reIndex expiresAfter',  doc._id, idxField, val, exc.message ) }
+
+        } else if ( idx[ idxField ].expiresAfterSeconds ) {
+          // log.info( jobId, 'reIndex expiresAfterSeconds', idxField, val  )
           if ( val != null && val != undefined ) {
             if ( typeof val == 'number' ) {
-              // log.info( jobId, 'expiresAt', getTimeHrStr( val ), doc._id  )
-              addDocId( indexFile[ idxFileName ], getTimeHrStr( val ), doc._id )
-            } else if  ( val instanceof Date ) {
-              addDocId( indexFile[ idxFileName ], getTimeHrStr( val.getTime() ), doc._id )
-            } else if  ( typeof val == 'string'  ) {
-              let dt = new Date( val )
-              addDocId( indexFile[ idxFileName ], getTimeHrStr( dt.getTime() ), doc._id )
+              let expireDt = val +  idx[ idxField ].expiresAfterSeconds * 1000
+              log.debug( jobId, 'expiresAfterSeconds',  getTimeHrStr( expireDt ), doc._id  )
+              addDocId( indexFile[ idxFileName ], getTimeHrStr( expireDt ), doc._id )
             } else {
-              log.warn( jobId, 'reIndex expiresAfter unexpected value',  doc._id, idxField, val )
+              log.warn( jobId, 'reIndex expiresAfterSeconds expected number',  doc._id, idxField, val )
             }
+          } 
+        } else if ( val == null ) {
+          addDocId(  indexFile[ idxFileName ], '_null_', doc._id )
+        } else {
+          switch ( typeof val ) {
+            case 'number':
+              addDocId(  indexFile[ idxFileName ], ( ''+val ).substring( 0, maxLen[ idxField ] ), doc._id )
+              break
+            case 'string':
+              addDocId(  indexFile[ idxFileName ], val.substring( 0, maxLen[ idxField ] ), doc._id )
+              break
+            case 'object':
+              addDocId(  indexFile[ idxFileName ], JSON.stringify( val ).substring( 0, maxLen[ idxField ]) , doc._id )
+              break
+            case 'boolean':
+              addDocId(  indexFile[ idxFileName ], '_'+val, doc._id )
+              break
+            case 'undefined':
+              addDocId(  indexFile[ idxFileName ], '_undefined_', doc._id )
+              break
+            case 'bigint':
+              addDocId(  indexFile[ idxFileName ], val.toString(16), doc._id )
+              break
           }
-        } catch ( exc ) { log.warn( jobId, 'reIndex expiresAfter',  doc._id, idxField, val, exc.message ) }
-
-      } else if ( idx[ idxField ].expiresAfterSeconds ) {
-        // log.info( jobId, 'reIndex expiresAfterSeconds', idxField, val  )
-        if ( val != null && val != undefined ) {
-          if ( typeof val == 'number' ) {
-            let expireDt = val +  idx[ idxField ].expiresAfterSeconds * 1000
-            log.debug( jobId, 'expiresAfterSeconds',  getTimeHrStr( expireDt ), doc._id  )
-            addDocId( indexFile[ idxFileName ], getTimeHrStr( expireDt ), doc._id )
-          } else {
-            log.warn( jobId, 'reIndex expiresAfterSeconds expected number',  doc._id, idxField, val )
-          }
-        } 
-      } else if ( val == null ) {
-        addDocId(  indexFile[ idxFileName ], '_null_', doc._id )
-      } else {
-        switch ( typeof val ) {
-          case 'number':
-            addDocId(  indexFile[ idxFileName ], ( ''+val ).substring( 0, maxLen[ idxField ] ), doc._id )
-            break
-          case 'string':
-            addDocId(  indexFile[ idxFileName ], val.substring( 0, maxLen[ idxField ] ), doc._id )
-            break
-          case 'object':
-            addDocId(  indexFile[ idxFileName ], JSON.stringify( val ).substring( 0, maxLen[ idxField ]) , doc._id )
-            break
-          case 'boolean':
-            addDocId(  indexFile[ idxFileName ], '_'+val, doc._id )
-            break
-          case 'undefined':
-            addDocId(  indexFile[ idxFileName ], '_undefined_', doc._id )
-            break
-          case 'bigint':
-            addDocId(  indexFile[ idxFileName ], val.toString(16), doc._id )
-            break
         }
       }
     }
@@ -359,10 +390,12 @@ async function reIndex( jobId, dbName, collName, idx ) {
 
   for ( let indexFileName in indexFile ) try {
     let idxFile = colDir +'idx/'+ indexFileName
-    writeIndexFileNm( idxFile,  indexFile[ indexFileName ] )
+    pushIndexFileByName( idxFile,  indexFile[ indexFileName ] )
     // log.debug( jobId, 'reIndex write file:', idxFile )
     // await writeFile( idxFile, JSON.stringify( indexFile[indexFileName], null, ' ' ) )
   } catch ( exc ) { log.warn( jobId, 'EXC reIndex write', dbName, collName, indexFile, exc  ) }
+
+  log.warn( jobId, 'reIndex done', dbName, collName, 'Re-indexed '+filenames.length+' documents.' )
 
   return { _ok: true, result: 'Re-indexed '+filenames.length+' documents.' }
 }
@@ -490,36 +523,45 @@ async function readIndexFile( jobId, dbName, collName, idxField, docToken ) {
 }
 
 
-function writeIndexFileNm( idxFileName, idx ) {
+function pushIndexFileByName( idxFileName, idx ) {
   IDX_CACHE[ idxFileName ] = { idx: idx, needWrite: true }
 }
 
-async function writeIndexFile( jobId, dbName, collName, idxField, docToken, idx ) {
+async function pushIndex( jobId, dbName, collName, idxField, docToken, idx ) {
   try {
     let idxFileName = dbFile.collPath( dbName, collName ) +'idx/'+ idxField +'/'+ idxField +'_'+ docToken +'.json'
     IDX_CACHE[ idxFileName ] = { idx: idx, needWrite: true }
   } catch ( exc ) { log.warn( jobId, 'writeIndexFile', exc.message ) }
-
-  // try {
-  //   await dbFile.ensureDirExists( dbFile.collPath( dbName, collName ) +'idx/'+ idxField )
-  //   let idxFileName = dbFile.collPath( dbName, collName ) +'idx/'+ idxField +'/'+ idxField +'_'+ docToken +'.json'
-  //   // log.info( jobId, 'writeIndexFile', idxFileName )    
-  //   await writeFile( idxFileName, JSON.stringify(idx, null, ' ' ) )
-  // } catch ( exc ) { log.warn( jobId, 'writeIndexFile', exc.message ) }
 }
 
 async function syncIndexCacheToFile() {
   for ( let idxFileName in IDX_CACHE ) {
     if ( IDX_CACHE[ idxFileName ].needWrite ) {
       try {
-        log.debug( 'syncIndexCacheToFile', idxFileName )    
-        let idxPath = idxFileName.substring( 0, idxFileName.lastIndexOf('/') )
-        log.debug( 'syncIndexCacheToFile', idxPath )    
-        await dbFile.ensureDirExists( idxPath )
-        await writeFile( idxFileName, JSON.stringify( IDX_CACHE[ idxFileName ].idx, null, ' ' ) )
+        await writeIdxFile( idxFileName, IDX_CACHE[ idxFileName ].idx )
         IDX_CACHE[ idxFileName ].needWrite = false
       } catch ( exc ) { log.warn( 'syncIndexCacheToFile', exc.message ) }
     }
   }
   // TODO: watch index mem size
+}
+
+async function writeEmbeddingFile( txnId, dbName, collName, idxField, docId, embeddings ) {
+  let idxPath = dbFile.collPath( dbName, collName ) +'idx/'+ idxField
+  let idxFileName = idxPath +'/'+ docId[0] +'/'+ docId[1] +'/'+ docId +'.json'
+  log.debug( txnId, 'Cre embedding', idxFileName )
+  await writeIdxFile( idxFileName, embeddings )  
+}
+
+
+async function writeIdxFile( idxFileName, index ) {
+  try {
+    log.debug( 'writeIdx', idxFileName )    
+    let idxPath = idxFileName.substring( 0, idxFileName.lastIndexOf('/') )
+    log.debug( 'writeIdx', idxPath )    
+    await dbFile.ensureDirExists( idxPath )
+    await writeFile( idxFileName, JSON.stringify( index, null, ' ' ) )
+  } catch ( exc ) {
+    log.warn( 'writeIdx', exc.message )
+  }
 }

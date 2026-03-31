@@ -1,6 +1,7 @@
 const log     = require( '../helper/logger' ).log
 const helper  = require( './db-helper' )
-const pubsub   = require( '../cluster-mgr/pubsub' )
+const pubsub  = require( '../cluster-mgr/pubsub' )
+const ai      = require( './db-ai' )
 
 const persistence = require( './db-persistence' )
 const { getAllDoc } = require( './db-doc-find' )
@@ -20,7 +21,9 @@ const PREP_UPDATE = 2
 
 async function insertQ( insReq ) {
   log.debug( insReq.txnId, 'DB insert', insReq.db, insReq.col )
-  let resultData = await persistence.insertDocPrep( insReq.txnId, insReq.db, insReq.col, insReq.doc, insReq.opts )
+  let resultData = await persistence.insertDoc( 
+    insReq.txnId, insReq.db, insReq.col, insReq.doc, insReq.opts, insReq.emb 
+  )
   return resultData
 }
 
@@ -140,9 +143,29 @@ async function creInsertMsg( r, doc ) {
     doc   : insDoc,
     opt   : r.options
   }
+  let embeddings = await getEmbeddings( r.txnId, r.db , r.coll, doc )
+  if ( embeddings ) {
+    insMsg.emb = embeddings
+  }
   log.debug( r.txnId, 'DB insert msg', insMsg )
   return { insMsg: insMsg, token: insDoc._token }
 }
+
+
+async function getEmbeddings( txnId, dbName, collName, doc ) {
+  let embeddings = null
+  let collDef = await persistence.listCollIdx( dbName, collName )
+  if ( collDef._ok ) {
+    for ( let field in collDef.index ) {
+      if ( collDef.index[ field ].AI == 'embedding-gemma' ) {
+        if ( ! embeddings ) { embeddings = {} }
+        embeddings[ field ] = await ai.getEmbedding( txnId, 'embeddinggemma', doc[ field ] )
+      }
+    }
+  }
+  return embeddings
+}
+
 
 async function creDocByIdMsg( r, id ) {
   log.debug( r.txnId, 'DB creDocByIdMsg', r.db, r.coll, id ) 

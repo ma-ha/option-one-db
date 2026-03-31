@@ -38,7 +38,7 @@ module.exports = {
   getDbTree,
   updateDbTree,
 
-  insertDocPrep,
+  insertDoc,
   // insertDocCommit,
   // insertDocRollback,
 
@@ -69,7 +69,8 @@ let reloadDbTreeInterval = null
 
 let cfg = {
   MAX_ID_SCAN: 10000,
-  CHECK_EXPIRE_INTERVAL: 10*60*1000
+  CHECK_EXPIRE_INTERVAL: 10*60*1000,
+  EMBEDDING_GEMMA_API: null
 }
 
 let  db = {}           // cache of meta data and data
@@ -174,20 +175,20 @@ async function getDoc( dbName, collection, id, options ) {
 }
 
 // ============================================================================
-async function insertDocPrep( txnId, dbName, collection, doc, options ) {
-  log.debug( txnId, 'insertDocPrep', dbName, collection, doc._id)
+async function insertDoc( txnId, dbName, collection, doc, options, embeddingsMap ) {
+  log.debug( txnId, 'insertDoc', dbName, collection, doc._id )
   let docId = doc._id
   let tstDoc = await getDoc( dbName, collection, docId, options )
   if ( tstDoc._ok ) { 
     if ( options?.noReplace ) {
-      log.debug( txnId,  'insertDocPrep EXISTS', dbName, collection, doc._id)
+      log.debug( txnId,  'insertDoc EXISTS', dbName, collection, doc._id )
       return { _ok: false, _error: 'exists' }       
     }
     if ( doc._upd ) {
-      log.debug( txnId,  'insertDocPrep EXISTS', dbName, collection, doc._id)
+      log.debug( txnId,  'insertDoc EXISTS', dbName, collection, doc._id )
       return { _ok: false, _error: 'exists' } 
     } else if ( tstDoc._upd >= doc._upd ) {
-      log.debug(txnId, 'insertDocPrep EXISTS+NEWER', dbName, collection, doc._id)
+      log.debug(txnId, 'insertDoc EXISTS+NEWER', dbName, collection, doc._id )
       return { _ok: false, _error: 'exists' } 
     } // else overwrite newer version // TODO OK?
   }
@@ -197,6 +198,11 @@ async function insertDocPrep( txnId, dbName, collection, doc, options ) {
 
   if ( collHasIndex( dbName, collection ) ) {
     await indexer.addDocToIndex( txnId, dbName, collection, doc, db[ dbName ].collection[ collection].index )
+  }
+  if ( embeddingsMap ) {
+    for ( let idxField in embeddingsMap ) {
+      await indexer.writeEmbeddingFile( txnId, dbName, collection, idxField, doc._id, embeddingsMap[ idxField ] ) 
+    }
   }
   delete lastConsistencyCheck[ dbName +'_'+ collection +'_'+ docId[0] ]
   writeOpsOngoing --
@@ -577,8 +583,15 @@ async function creColl( jobId, dbName, collName, collOpts ={} ) {
     log.warn( jobId, 'createCollection', 'Primary key must be an Array')
     return { _error: 'Primary key must be an Array' }
   }
-  writeOpsOngoing ++
+  
   let idx =  ( collOpts.index ? collOpts.index : {} )
+  for ( let fld in idx ) {
+    if ( idx[ fld ].AI == 'embedding-gemma' && ! cfg.EMBEDDING_GEMMA_API ) {
+      return { _ok: false, _error: 'AI indexing not supported'}
+    }
+  }
+  
+  writeOpsOngoing ++
   db[ dbName ].collection[ collName ] = {
     primaryKey   : collOpts.pk,
     noPK         : ( collOpts.noPK === true ? true : false ),
@@ -671,14 +684,20 @@ async function updateIdx( jobId, dbName, collName, idx ) {
   if ( deepEqual( idx, idxFrmFile ) ) {
     return { _ok: true }
   }
+  for ( let fld in idx ) {
+    if ( idx[ fld ].AI == 'embedding-gemma' && ! cfg.EMBEDDING_GEMMA_API ) {
+      return { _ok: false, _error: 'AI indexing not supported'}
+    }
+  }
   writeOpsOngoing ++
   log.info( jobId, 'updateIdx changed', dbName, collName )
   db[ dbName ].collection[ collName ].index = idx
   await indexer.updateIndex( jobId, dbName, collName, idx )
-  // TODO: make this async
-  let idxResult = await indexer.reIndex( jobId, dbName, collName, idx )
+  // TODO: OK?
+  indexer.reIndex( jobId, dbName, collName, idx ) // no await
+  // let idxResult = await indexer.reIndex( jobId, dbName, collName, idx )
   writeOpsOngoing --
-  return { _ok: true, result: idxResult.result }
+  return { _ok: true, result: "Re-indexing started." }
 }
 
 function deepEqual( x, y ) {

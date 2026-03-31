@@ -4,6 +4,7 @@ const fs    = require( 'fs' )
 const { mkdir, writeFile, readFile, rm, rmdir, stat, readdir, open, opendir } = require( 'node:fs/promises' )
 const dbFile  = require( './db-file' )
 const helper  = require( './db-helper' )
+const ai      = require( './db-ai' )
 
 
 module.exports = {
@@ -39,7 +40,7 @@ function init( configParams ) {
 //    })
 async function findDocCandidates( txnId, dbName, collName, query, idx ) {
   try {
-    log.info( txnId, 'findDocCandidates', 'query', dbName, collName, query, idx  )
+    log.debug( txnId, 'findDocCandidates', 'query', dbName, collName, query, idx  )
     if ( ! query || query == {} ) { return null }
 
     let matchDocIDs = [ '_ALL_' ]
@@ -150,12 +151,30 @@ async function findDocCandidates( txnId, dbName, collName, query, idx ) {
       
       if ( typeof  qFld === 'object' ) {
 
-        log.info( txnId, 'findDocCandidates', 'condition index query', qKey, qFld )
-        let ids = await getDocsCompIndex( txnId, dbName, collName, qKey, qFld )
-        if ( ! ids ) { return { _error: 'Error in query: ' +  qKey +' ' + qryVal }}
-        if ( ids._error ) { return { _error: 'Error in query: ' + idx._error +' ('+  qKey +' ' + qryVal+')' }}
-        return { pureIdx: true, ids: ids }
+        try {
 
+          if ( qFld[ '$ai' ] && qFld.emb ) {
+
+            let q = 0.8
+            if ( qFld.q ) { q = qFld.q }
+            let result = await getDocsEmbQry( txnId, dbName, collName, qKey, qFld.emb, q )
+            return { pureIdx: true, ids: result.ids, q: result.q }
+  
+          } else {
+  
+            log.info( txnId, 'findDocCandidates', 'condition index query', qKey, qFld )
+            let result = await getDocsCompIndex( txnId, dbName, collName, qKey, qFld )
+            if ( ! result ) { return { _error: 'Error in query: ' +  qKey +' ' + qryVal }}
+            if ( result._error ) { return { _error: 'Error in query: ' + idx._error +' ('+  qKey +' ' + qryVal+')' }}
+            return { pureIdx: true, ids: result.ids, q: result.q }
+          }
+  
+          
+        } catch ( exc ) {
+          log.error( 'findDocCandidates not supported', qKey, qFld, exc.message )
+          return { _error: 'Query error: '+qKey+' '+qFld+' '+exc.message }
+  
+        }
 
       } else { 
         log.warn( 'findDocCandidates not supported', qKey, qFld )
@@ -173,8 +192,9 @@ async function findDocCandidates( txnId, dbName, collName, query, idx ) {
 async function getDocsEqIndex( txnId, dbName, collName, qKey, val ) {
   let idxDir = dbFile.collPath( dbName, collName ) +'/idx/'+ qKey 
   let docIDs = []
-  let fileArr = fs.readdirSync( idxDir, { withFileTypes: true } )
-  for ( let x of fileArr ) {
+  let filenames = await dbFile.getJsonRecursive( idxDir )
+
+  for ( let x of filenames ) {
     // log.info( txnId,'getDocsByIndex load', x.name )
     if ( x.name.endsWith( '.json' ) ) {
       let idx = JSON.parse( await readFile( idxDir +'/'+ x.name ) )
@@ -225,6 +245,37 @@ async function getDocsCompIndex( txnId, dbName, collName, qKey, expr ) {
     }
   }
   return docIDs
+}
+
+// ============================================================================
+// AI search:
+
+async function getDocsEmbQry( txnId, dbName, collName, qKey, qryEmbeddings, qMin ) {
+  log.debug( txnId, 'getDocsEmbQry', dbName, collName, qKey, qryEmbeddings, qMin)
+  let idxDir = dbFile.collPath( dbName, collName ) +'/idx/'+ qKey
+  let result = { ids: [], q: {} }
+  let embFiles = await dbFile.getJsonRecursive( idxDir )
+  for ( let idxFile of embFiles ) {
+    let docEmbIdx = JSON.parse( await readFile( idxFile ) )
+    for ( const docEmb of docEmbIdx ) {
+      for ( const qryEmb of qryEmbeddings ) {
+        let q = ai.cosSimilarity( docEmb, qryEmb )
+        if ( q > qMin ) {
+          let docId = getIdFromEmbFileName( idxFile )
+          result.ids.push( docId  )
+          result.q[ docId ] = q
+          break // don't add same id multiple times
+        }
+      }
+    }
+  }
+  return result
+}
+
+function getIdFromEmbFileName( idxFile ) {
+  let embFile = idxFile.substring( idxFile.lastIndexOf('/') +1 )
+  let id = embFile.replace( '.json', '' )
+  return id
 }
 
 // ============================================================================

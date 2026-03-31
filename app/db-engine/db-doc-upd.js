@@ -64,7 +64,7 @@ async function replaceOneDoc( txnId, dbName, collName, docId, doc, opt ) {
   // check if indexed fields are modifies
   let collSPec = await persistence.getCollSpec( dbName, collName )
   let origDoc = await persistence.getDocById( dbName, collName, docId )
-  for ( let idxField in collSPec.idx ) {
+  for ( let idxField in collSPec.idx ) { // TODO support path as index
     if (! origDoc.doc || origDoc.doc[ idxField ] !== doc[ idxField ] ) {
       changedIdxField.push( idxField )
     }

@@ -1,11 +1,12 @@
 # Option-One-DB 
 
-Option One DB is the next generation open source document database:
+Option One DB is the next generation open source document database with built in AI search:
 - Fast and light weight
 - Scales horizontally
   ... but runs as single server on a laptop or even a Raspberry Pi
 - Optimized to run in a container and Kubernetes
 - Powerful indexing and query engine
+  - use LLM to create embedding indexes 
 - Integrated GUI for administration, monitoring and data access
 - Simple user and API access management
 - Built in backup scheduler
@@ -62,8 +63,8 @@ The initial admin password is in the logs:
 
 Open http://${K8S-GATEWAY-IP}/option-one-db and log in.
 
-If all cluster nodes are IN "OK" state, the tokens 0..F should be distributed evenly w/o duplicates. 
-Logs or cluster GUI should show something like this:
+If all cluster nodes are in "OK" state, the tokens 0..f should be distributed evenly w/o duplicates. 
+Logs or GUI should show something like this:
 
     db01:9011/db   (OK)  [ 0 3 6 9 c f ]
     db02:9012/db   (OK)  [ 1 4 7 a d ]
@@ -96,7 +97,7 @@ for ( let doc of docArray ) {
 Check out the [API Reference](https://github.com/ma-ha/option-one-db-js-sdk/blob/master/README-SDK.md).
 
 
-## Collection Indexing Modes
+## Collection Primary Key Modes
 
 Option-One DB supports 2 collection modes:
 
@@ -108,6 +109,18 @@ In both modes you can find documents by `_id` and any indexed field -- or any un
 In collection of type 1 you can insert the same document multiple times.
 
 In collection type 2 you get an error, if you try to insert a doc, where an existing doc has the same PK. Insert will also fail s all PK fields are missing in the document. 
+
+## Indexes
+
+To speed up queries you can 
+* add classic indexes for any field
+* add embedding indexes using LLMs
+
+AI index and query example:
+
+![AI index and query example](ai-search.png)
+
+Details see [AI search](app/gui/docu/ai-embedding.md) in the inline docu.
 
 ## Define API and GUI URL Path (default: /db)
 
@@ -139,6 +152,7 @@ The config parameters can be passed
 | DB_PASSWORD_REGEX_HINT | Hint in GUI for password change | `"Password minimum length must be 8, must contain upper and lower case letters, numbers and extra characters !@#$&*+-_=[]{}"` |
 | DB_POD_NAME            | If you need to override `$HOSTNAME` | `$HOSTNAME`      |
 | DB_SEED_PODS           | URL of node which should take the lead for cluster operations (e.g. `localhost:9000/db`) |  *`undefined`* |
+| EMBEDDING_GEMMA_API    | URL of LLM embedding API        | null                 |
 | ERR_LOG_EXPIRE_DAYS    | Retention for error logs (days) | `31`                 |
 | GUI_SHOW_CLUSTER       | Show cluster tab in admin GUI   | `true`               |
 | GUI_SHOW_ADD_DB        | Show "Add DB" form in admin GUI | `true`               |

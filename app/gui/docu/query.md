@@ -82,6 +82,17 @@ Example:
 
     myColl.find({ "name": { "$like": "Joe" } })
 
+# AI queries
+
+Option One DB has a built in indexing and search based on LLM. 
+To search using LLM indexes use `$ai`. Example:
+
+    query = {
+      productDescription: { $ai: "Which products with suitable for new customers?" }
+    }
+
+Details see: [[ai-embedding.md|Using AI search]] documentation.
+
 # Logical Operators
 
 - `$and`   joins query clauses with a logical AND returns all documents that match the conditions of both clauses.

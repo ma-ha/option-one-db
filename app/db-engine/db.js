@@ -196,7 +196,8 @@ async function replaceOneDoc( txnId, dbName, coll, id, doc, opt = {} ) {
   if ( collSpec.masterData ) {
     opt.allNodes = true
   }
-  if ( collSpec.pk?.length > 0 ) {
+  log.info( 'collSpec.pk', collSpec.pk )
+  if ( collSpec.pk[0] != '_id'  &&  collSpec.pk?.length > 0 ) {
     let pKeyHash = await helper.getPkHash( dbName, coll, doc, collSpec.pk )
   
     if ( id != pKeyHash ) {

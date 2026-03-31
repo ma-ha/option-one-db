@@ -1,4 +1,10 @@
-# 0.9.1/2
+# 0.10.0
+- AI indexing and queries with embeddings
+
+# 0.9.6
+- refactor api metrics
+
+# 0.9.1/2/3/4
 - pkg updates
 
 # 0.9.0

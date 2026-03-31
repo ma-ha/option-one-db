@@ -52,7 +52,8 @@ module.exports = {
 
 let cfg = {
   GUI_SHOW_USER_MGMT: true,
-  GUI_BACKUP_ADMIN: true
+  GUI_BACKUP_ADMIN: true,
+  EMBEDDING_GEMMA_API: null
 }
 
 function init( configParams ) {
@@ -431,6 +432,12 @@ async function updateIndex( req, res ) {
     } catch ( exc ) {
       return res.status( st.BAD_REQUEST ).send( 'Index definition not valid: '+ exc.message )
     }
+
+    for ( let fld in idxUpdate ) {
+      if ( idxUpdate[ fld ].AI == 'embedding-gemma' && ! cfg.EMBEDDING_GEMMA_API ) {
+        return res.status( st.BAD_REQUEST ).send( 'AI index is not supported' )
+      }
+    }
   
     let creResult = await manageDB.nodesUpdCollIdx( txnId, dbName, collName, idxUpdate )
     for ( let idxName in idxUpdate ) {
@@ -642,7 +649,7 @@ async function getCollData( req, res ) {
     if ( req.query.qry ) {
       try {
         qry = JSON.parse( req.query.qry )
-        log.info( 'Query', qry )
+        log.debug( 'Query', qry )
       } catch (exc ) { 
         log.warn(  txnId, 'Parse Query', exc.message )
         res.status(400).send( "Query must be JSON: "+exc.message)
