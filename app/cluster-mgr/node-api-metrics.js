@@ -42,6 +42,7 @@ let cfg = {
   MONITOR_STATUS_SEC: 10
 }
 
+let initDone = false
 let insertMetric = true
 let needLoadMetric = true
 let metricId = null
@@ -163,6 +164,7 @@ async function loadMetrics() {
     } 
     initDone = true
   } catch ( exc ) { log.warn( 'loadMetrics find', exc.message )}
+  return initDone
 }
 
 

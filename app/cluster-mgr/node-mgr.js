@@ -67,6 +67,7 @@ let cfg = {
 
 let fastStartInterval     = null
 let startBackupInterval   = null 
+let initDone              = false
 
 async function init( configParams, options ) { 
   cfgHlp.setConfig( cfg, configParams )
@@ -313,9 +314,9 @@ async function broadcastNodeUpdate( options = {}) {
     if ( own.status == 'OK' && syncData.db.admin && syncData.db.admin .c['api-metrics'] ) {
       if ( ! initDone ) {
         log.info( 'Init metrics')
-        metrics.loadMetrics()
+       initDone = await metrics.loadMetrics()
         // if ( ! cfg.MODE == "SINGLE_NODE" ) {
-          db.startConsistencyChecks( statMgr.ownNodeId(), statMgr.getOwnTokens() )
+        db.startConsistencyChecks( statMgr.ownNodeId(), statMgr.getOwnTokens() )
         // }
       }
     }
@@ -383,8 +384,6 @@ function getDbTask() {
 }
 
 // ===========================================================================
-
-let initDone = false
 
 function dbInitDone() {
   metrics.dbReady()

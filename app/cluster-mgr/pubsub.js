@@ -46,8 +46,8 @@ const Q_JOB_OUT = 8
 let cfg = {
   MODE       : 'RMQ',
   RMQ_URL    : 'amqp://localhost',  // not used if cfg.MODE == "SINGLE_NODE"
-  RMQ_PREFIX : 'DB_',
-  RMQ_JOB_EXCHANGE : 'DB_node_jobs'
+  RMQ_PREFIX : 'db-',
+  RMQ_JOB_EXCHANGE : 'db-node-jobs'
 }
 
 async function init( nodeName, configParams, incMetricFunc, jobDispatcher, dbQuorum = 2  ) {
@@ -76,10 +76,11 @@ async function init( nodeName, configParams, incMetricFunc, jobDispatcher, dbQuo
     await iniJobExchanges()
     await initLogExchanges()
 
-    let queueBaseName = cfg.RMQ_PREFIX + NODE_NAME.replaceAll( ':', '_' ).replaceAll( '.', '_' ).replaceAll( '/', '_' )
-    dataQueue = await initDataQueue( queueBaseName )
-    jobQueue  = await initJobQueue(  queueBaseName )
-    logQueue  = await initLogQueue(  queueBaseName )
+    let queueBaseName = cfg.RMQ_PREFIX + NODE_NAME
+    queueBaseName = queueBaseName.toLocaleLowerCase().replaceAll( ':', '-' ).replaceAll( '.', '-' ).replaceAll( '/', '-' )
+    dataQueue = await initDataQueue( queueBaseName + '-data'  )
+    jobQueue  = await initJobQueue(  queueBaseName + '-job')
+    logQueue  = await initLogQueue(  queueBaseName + '-logs')
    
     replyQueue = await initReplyProcessor( jobDispatcher )
 
@@ -124,9 +125,9 @@ async function iniJobExchanges() {
   await channel.assertExchange( cfg.RMQ_JOB_EXCHANGE , 'topic', { durable: true } )
 }
 
-async function initJobQueue( nodeName ) {
-  log.info( 'RMQ: Init Job Queue ...')
-  const { queue } = await channel.assertQueue( nodeName+'_Job', { durable: true } )
+async function initJobQueue( queueName ) {
+  log.info( 'RMQ: Init Job Queue', queueName )
+  const { queue } = await channel.assertQueue( queueName, { durable: true } )
   return queue
 }
 
@@ -248,16 +249,18 @@ async function sendJob( type, task, persistent = true, needReply=false ) {
 async function initTokenExchanges() { 
   let allTokens = hlp.genTokens( )
   for( let token of allTokens ) {
-    let exchange = cfg.RMQ_PREFIX + 'token_' + token
+    let exchange = cfg.RMQ_PREFIX + 'token-' + token
+    exchange = exchange.toLowerCase()
     await channel.assertExchange( exchange , 'topic', { durable: true } )
   }
-  let exchange = cfg.RMQ_PREFIX + 'all_nodes'
+  let exchange = cfg.RMQ_PREFIX + 'all-nodes'
+  exchange = exchange.toLowerCase()
   await channel.assertExchange( exchange , 'topic', { durable: true } )
 }
 
-async function initDataQueue( nodeName ) {
-  log.debug( 'RMQ: Init Data Queue ...')
-  const { queue } = await channel.assertQueue( nodeName+'_Data', { durable: true } )
+async function initDataQueue( queueName ) {
+  log.debug( 'RMQ: Init Data Queue:', queueName )
+  const { queue } = await channel.assertQueue( queueName, { durable: true } )
   return queue
 }
 
@@ -271,7 +274,8 @@ async function subscribeDataUpdates( token, dataUpdCallback ) {
     return 
   }
 
-  let tokenExchange = cfg.RMQ_PREFIX + 'token_' + token.toLowerCase()
+  let tokenExchange = cfg.RMQ_PREFIX + 'token-' + token.toLowerCase()
+  tokenExchange = tokenExchange.toLowerCase()
   subscribeExchDataUpdates( tokenExchange, dataUpdCallback )
 }
 
@@ -282,7 +286,8 @@ async function subscribeDataBroadcasts( dataUpdCallback ) {
     return 
   }
 
-  let allExchange = cfg.RMQ_PREFIX + 'all_nodes'
+  let allExchange = cfg.RMQ_PREFIX + 'all-nodes'
+  allExchange = allExchange.toLowerCase()
   subscribeExchDataUpdates( allExchange, dataUpdCallback )
 }
 
@@ -331,12 +336,14 @@ async function subscribeExchDataUpdates( exchange, dataUpdCallback ) {
 }
 
 async function sendRequest( txnId, token, reqData ) {
-  let exchangeForToken = cfg.RMQ_PREFIX + 'token_' + token.toLowerCase()
+  let exchangeForToken = cfg.RMQ_PREFIX + 'token-' + token
+  exchangeForToken = exchangeForToken.toLowerCase()
   sendExchDataUpdate( exchangeForToken, txnId, token, reqData )
 }
 
 async function sendRequestAllNodes( txnId, reqData ) {
-  let exchangeAllNodes = cfg.RMQ_PREFIX + 'all_nodes'
+  let exchangeAllNodes = cfg.RMQ_PREFIX + 'all-nodes'
+  exchangeAllNodes = exchangeAllNodes.toLowerCase()
   sendExchDataUpdate( exchangeAllNodes, txnId, null, reqData )
 }
 
@@ -567,7 +574,7 @@ async function initLogExchanges() {
 
 async function initLogQueue( nodeName ) {
   log.info( 'Init Job Queue ...')
-  const { queue } = await channel.assertQueue( nodeName+'_Logs', { durable: true } )
+  const { queue } = await channel.assertQueue( nodeName, { durable: true } )
   return queue
 }
 

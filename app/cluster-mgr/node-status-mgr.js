@@ -543,9 +543,9 @@ function printNodesShort( txt ) {
         oneNode += tn + ' '
       }
     }
-    oneNode += ']'
+    // oneNode += ']'
+    oneNode += ']\n'
     nodeStrArr.push( oneNode )
-    // nodeStr += ']\n'
   }
   nodeStrArr.sort()
   let nodeStr = nodeStrArr.join( '' )

@@ -1,3 +1,9 @@
+# 0.11.0
+- fix initDone loop
+- ASB friendly queue names
+
+IMPORTANT: Due to queue name changes it might be required to clean up RabbitMQ manually!
+
 # 0.10.0
 - AI indexing and queries with embeddings
 
