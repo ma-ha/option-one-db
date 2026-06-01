@@ -34,7 +34,7 @@ Open `http://localhost:9000/db` and log in.
 
 ### Run the server as NodeJS process
 
-Alternatively, start single Option One DB server on console:
+Alternatively, start single Option One DB server on a console:
 
 ```bash
 (cd app; npm install)
