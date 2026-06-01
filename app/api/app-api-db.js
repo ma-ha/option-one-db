@@ -388,10 +388,10 @@ async function delBackupSchedule( req, res ) {
 // helper
 
 function paramsOK( req, res, r ) {
-  if ( ! req.params.db ) {
+  if ( ! req.params?.db ) {
     res.send( { error: 'db required' } )
     return false
-  } else if ( ! req.params.coll ) {
+  } else if ( ! req.params?.coll ) {
     res.send( { error: 'collection required' } )
     return false
   } 

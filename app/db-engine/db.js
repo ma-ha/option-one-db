@@ -9,6 +9,7 @@ const dbDocCre  = require( './db-doc-cre' )
 const dbDocFind = require( './db-doc-find' )
 const dbDocUpd  = require( './db-doc-upd' )
 const dbDocDel  = require( './db-doc-del' )
+const dbDocAttch= require( './db-attachment' )
 const dbMetrics = require( './db-metrics' )
 const dbJobs    = require( './db-jobs' )
 const persistence = require( './db-persistence' )
@@ -34,8 +35,11 @@ module.exports = {
   getTxnId              : helper.getTxnId,
 
   insertOneDoc,
+  addAttachment,
+  getAttachment,
+  deleteAttachment,
   addAuditLog           : dbDocCre.addAuditLog,
-  creDocByIdMsg         : dbDocCre.creDocByIdMsg,
+  docByIdMsg            : dbDocCre.docByIdMsg,
 
   find,
   findDocs,
@@ -134,6 +138,74 @@ async function insertOneDoc( r, doc ) {
   let result = await dbDocCre.insertOneDoc( r, doc )
   dbMetrics.addDbMetric( r.db, r.coll, "ins", result )
   return result
+}
+
+
+async function addAttachment( r, id, fileName, mimetype, size, hexData, label  ) {
+  let token = helper.extractToken( id )
+  let result = await persistence.getDocById( r.db, r.coll, id )
+
+  if ( ! result._ok ) {
+    return { _error : 'Document not found' }
+  }
+
+  let msg = {
+    op    : 'attach blob',
+    txnId : r.txnId+'a',
+    db    : r.db,
+    col   : r.coll,
+    docId : id,
+    attachmentName  : fileName,
+    attachmentMime  : mimetype,
+    attachmentSize  : size,
+    attachmentHex   : hexData,
+    attachmentLabel : label
+  }
+  await pubsub.sendRequest( msg.txnId, token, msg )
+  let attResult = await pubsub.getReplies( msg.txnId )
+  return attResult
+}
+
+
+async function getAttachment( r, id, fileName ) {
+  log.debug( r.txnId, 'db.getAttachment', r )
+  let token = helper.extractToken( id )
+  let result = await persistence.getDocById( r.db, r.coll, id )
+  if ( ! result._ok ) {
+    return { _error : 'Document not found' }
+  }
+  let msg = {
+    op    : 'get attachment',
+    txnId : r.txnId+'a',
+    db    : r.db,
+    col   : r.coll,
+    docId : id,
+    attachmentName : fileName
+  }
+  await pubsub.sendRequest( msg.txnId, token, msg )
+  let attResult = await pubsub.getReplies( msg.txnId )
+  // log.info( 'att replies ===', attResult )
+  return attResult
+}
+
+async function deleteAttachment( r, id, fileName ) {
+  log.info( r.txnId, 'db.deleteAttachment', r )
+  let token = helper.extractToken( id )
+  let result = await persistence.getDocById( r.db, r.coll, id )
+  if ( ! result._ok ) {
+    return { _error : 'Document not found' }
+  }
+  let msg = {
+    op    : 'delete attachment',
+    txnId : r.txnId+'a',
+    db    : r.db,
+    col   : r.coll,
+    docId : id,
+    attachmentName : fileName
+  }
+  await pubsub.sendRequest( msg.txnId, token, msg )
+  let attResult = await pubsub.getReplies( msg.txnId )
+  return attResult
 }
 
 //-----------------------------------------------------------------------------
@@ -384,7 +456,7 @@ const sleep = ms => new Promise( r => setTimeout( r, ms ) )
 async function reSyncDoc( txnId, dbName, collName, id ) {
   try {
     log.info( txnId, 'Trying to sync document', dbName, collName, id  )
-    let qryMsg = await dbDocCre.creDocByIdMsg( { db:dbName, coll:collName, txnId: txnId }, id )
+    let qryMsg = await dbDocCre.docByIdMsg( { db:dbName, coll:collName, txnId: txnId }, id )
     pubsub.sendRequest( txnId, id[0], qryMsg )
     let result = await pubsub.getReplies( txnId )
     if ( result._ok ) {
@@ -464,6 +536,7 @@ async function processQueuedDtaUpd( dbReq ) {
         break;
         
       case 'insertAllNodes':
+        log.warn( '### processQueuedDtaUpd insertAllNodes ###' )
         resultData = await dbDocCre.insertOneDoc( { db: dta.db, coll: dta.col }, dta.doc )
         break;
       
@@ -535,6 +608,18 @@ async function processQueuedDtaUpd( dbReq ) {
         checkDataConsistency( dta )
         break
 
+      case 'attach blob':
+        resultData = await dbDocAttch.setAttachment( dta.txnId, dta.db, dta.col, dta.docId, dta.attachmentName, dta.attachmentMime, dta.attachmentSize, dta.attachmentHex, dta.attachmentLabel )
+        break
+
+      case 'get attachment':
+        resultData = await dbDocAttch.getAttachment( dta.txnId, dta.db, dta.col, dta.docId, dta.attachmentName )
+        break
+
+      case 'delete attachment':
+        resultData = await dbDocAttch.deleteAttachment( dta.txnId, dta.db, dta.col, dta.docId, dta.attachmentName )
+        break
+  
       default:
         break;
     }

@@ -35,7 +35,7 @@ function initAdminCheck( configParams ) {
       }
 
       if ( req.headers[ 'accessid'] ) {
-        // log.info( 'HDR', req.headers )
+        log.debug( 'HDR', req.headers )
         let dbName = req.header.accessid.split('/')[0]
         if ( dbName == 'all_') {
           dbName = '*'
@@ -189,11 +189,11 @@ function initSecCheck( guiApp) {
 
       // check if this request comes from the internal web GUI
       let xUser = await gui.getUserIdFromReq( req )
-      log.debug( 'SecCheck xUser', xUser )
+      log.debug( 'SecCheck xUser', req.url, xUser )
       if ( xUser ) {
         let id = await db.getPkID( 'user:'+xUser )
         let user = await db.getDocById( 'admin', 'user', id )
-        log.debug( 'SecCheck user', user )
+        log.debug( 'SecCheck user', req.url, user )
         if ( ! user || ! user.doc ) {
           helper.dbgEnd( 'SecCheck', txnId )
           return next( new UnauthorizedError(
@@ -205,6 +205,7 @@ function initSecCheck( guiApp) {
         req.xUser = xUser
         req.xCSS  = ( user.doc.design ?  user.doc.design : 'bright' )
         helper.dbgEnd( 'SecCheck', txnId )
+        log.debug( 'SecCheck user OK', req.url )
         return await next()
       }
       log.debug( 'SecCheck headers.authorization' )
@@ -276,9 +277,6 @@ async function getBasicAuthUser( req ) {
    // verify 
    let user = await db.getDocById( 'admin', 'user', id )
    log.debug( 'getBasicAuthUser', user )
-  //  log.info( 'getBasicAuthUser', passwordHash )
-
-   //  log.info( 'user', user )
    if ( user._ok && user.doc.passwordHash == passwordHash ) {
      return user.doc
    }

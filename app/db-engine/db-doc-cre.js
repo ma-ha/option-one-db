@@ -13,7 +13,7 @@ module.exports = {
   addAuditLog,
   // insertOneDocAllNodes,
   creInsertMsg,
-  creDocByIdMsg
+  docByIdMsg
 }
 
 const PREP_INSERT = 1
@@ -167,8 +167,8 @@ async function getEmbeddings( txnId, dbName, collName, doc ) {
 }
 
 
-async function creDocByIdMsg( r, id ) {
-  log.debug( r.txnId, 'DB creDocByIdMsg', r.db, r.coll, id ) 
+async function docByIdMsg( r, id ) {
+  log.debug( r.txnId, 'DB docByIdMsg', r.db, r.coll, id ) 
   let msg = {
     op    : 'get by id',
     txnId : r.txnId,

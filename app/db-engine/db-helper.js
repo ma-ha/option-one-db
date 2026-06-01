@@ -177,7 +177,7 @@ function isPkQuery( query, colSpec ) {
   }
   log.debug( 'isPkQuery', allPK )
   return allPK
-}
+} 
 
 function isIdxQuery( query, colSpec ) {
   log.debug( 'HELPER isIdxQuery', query, colSpec )
@@ -191,6 +191,12 @@ function isIdxQuery( query, colSpec ) {
         }
       } else if ( colSpec.idx[ q ] ) {
         log.debug( 'HELPER isIdxQuery >>', query, q )
+        if ( colSpec.idx[ q ].AI ) {  // AI indexes can only be used with $ai
+          let qExpr = query[q]
+          if ( ! qExpr || ! qExpr['$ai'] ) {
+            return false
+          }
+        }
         isIdx = true
       }
     }
@@ -250,7 +256,7 @@ function evalQueryExpr( dtaVal, expression ) {
 
     } else if ( comparator == '$like') {
       
-      // log.info( 'like object', dtaVal, compVal )
+      log.info( 'like object', dtaVal, compVal )
       if ( typeof compVal === 'string'  ) {
         if ( dtaVal.indexOf( compVal ) >= 0 ) { isIn = true } else { isIn = false }
       } else { return false }

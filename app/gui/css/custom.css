@@ -15,6 +15,7 @@
   --link-color: #444444;
   --link-active-color: #000000;
   --content-h-bg-color: #81c3e8;
+  --edit-bg-color: white;
 }
 html {
   background-color: var(--main-bg-color);
@@ -36,6 +37,12 @@ body {
 
 #footerdiv, #footer  {
   background-color: var(--footer-bg-color);
+}
+
+input:read-only,
+textarea:read-only {
+  opacity: 0.8 !important;
+  background-color: #CCC;
 }
 
 #WikiContent,
@@ -192,12 +199,6 @@ body {
   padding-top: 15px;
 }
 
-input:read-only,
-textarea:read-only {
-  opacity: 0.8 !important;
-  background-color: #CCC;
-}
-
 .pongFormActions {
   margin-top: 5px;
 }
@@ -235,6 +236,34 @@ textarea:read-only {
   clear: left;
   display: block;
   width: 90%;
+}
+
+
+#docEditContent_creDiv,
+#docEditContent_chgDiv {
+  width: 49%;
+  float: left;
+}
+
+#docAttachContentlabel,
+#docAttachFSContentlabel {
+    padding-bottom: 5px;  
+}
+
+#docAttachContentlabel label,
+#docAttachFSContentlabel label {
+  float: left;
+  width: auto;
+  padding-right: 5px;
+}
+
+#attachmentsContent {
+  background-color: var(--edit-bg-color);
+}
+
+#attachmentsContent .pongIcon {
+  text-align: center;
+  width: 150px;
 }
 
 #MonConfigFrm label,
@@ -293,8 +322,14 @@ textarea:read-only {
 .pongFormInputdocEditContentGrp0Col0 {
   width: 100%;
 }
-#docEditContentdoc {
+#docEditContentdata,
+#docEditFSContentdata {
   width: 95%;
+}
+
+#docEditFS .pongFormInputGrp0,
+#docEditFS .pongFormInputCol {
+  width: 100%;
 }
 
 #collDescContent, #col1viewContent, #collDocListContent, #docEditContent, #collQryContent {
@@ -332,6 +367,7 @@ textarea:read-only {
 }
 
 #collQryContentqryDiv p,
+#collQryContentqryHistDiv p,
 #collQryContentoptsDiv p,
 #AddBackupFrm p {
   margin-top: 7px;

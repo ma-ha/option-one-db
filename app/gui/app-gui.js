@@ -13,6 +13,7 @@ const userPg     = require( './gui-page-user' )
 const apiSpPg    = require( './gui-page-api-sp' )
 const monitoring = require( './gui-page-monitoring' )
 const backupPg   = require( './gui-page-backup' )
+const swagger    = require( './gui-swagger' )
 
 exports: module.exports = {
   init
@@ -83,6 +84,8 @@ function init( configParams ) {
   gui.getExpress().get( '/gui/db/names', (req,res) => {
     [ { "name":"1"}, { "name":"XYZ" } ]
   })
+
+  swagger.init( gui, configParams )
 
   return gui
 }

@@ -76,9 +76,10 @@ async function findDocs( r, qry ) {
   try {
     let query = ( typeof qry  == 'string' ? JSON.parse( qry ) : qry )
     let findRequest = await creFindMsg( r, query )
+    log.debug( 'findRequest', findRequest )
     if ( r.db != 'admin' ) {
       log.debug( r.txnId, 'findRequest',  r.db, r.coll, query, findRequest.op )
-      log.info( r.txnId, 'findRequest',  r.db, r.coll, findRequest.op )
+      // log.info( r.txnId, 'findRequest',  r.db, r.coll,  query, findRequest.op )
     }
     if ( findRequest._error ) { return findRequest }
     // if ( findRequest._error ) { 
@@ -236,7 +237,7 @@ async function getAllDoc( txnId, dbName, collName, query, proj, options={}, isId
         if ( idxScan ) {
           if ( idxScan._error ) { return idxScan }
           if ( idxScan.pureIdx ) {
-            log.debug( txnId, 'getAllDoc pure index query result', query,  idxScan )
+            log.info( txnId, 'getAllDoc pure index query result', query,  idxScan )
             let result = {
               doc   : [],
               docId : idxScan.ids,
@@ -247,6 +248,8 @@ async function getAllDoc( txnId, dbName, collName, query, proj, options={}, isId
             }
             if ( ! options.idsOnly ) {
               let cnt = 0
+              if ( ! result.docId ) { result.docId = [] }
+              log.info( 'result', result )
               for ( let docId of result.docId ) {
                 try {
                   const data = await persistence.getDocById( dbName, collName, docId )  // this uses doc cache
@@ -475,6 +478,15 @@ async function creFindMsg( r, query ) {
 
     log.debug( r.txnId, 'DB find', 'get all docs' )
     findRequest.op = 'find all doc'
+    return findRequest
+
+  } else if ( query._id ) {
+    
+    let docId = query._id
+    findRequest.token  = helper.extractToken( docId )
+    findRequest.docId = docId
+    log.debug( r.txnId, 'DB find', 'by PK', docId, findRequest.token )
+    findRequest.op = 'find by PK'
     return findRequest
 
   } else if ( helper.isPkQuery( query, colSpec ) ) {

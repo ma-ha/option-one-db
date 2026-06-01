@@ -15,6 +15,7 @@
   --link-color: #7b93e1;
   --link-active-color: #9eaee0;
   --content-h-bg-color: #81c3e8;
+  --edit-bg-color: #353131;
 }
 html {
   background-color: var(--main-bg-color);
@@ -35,6 +36,12 @@ body {
 
 #footerdiv, #footer  {
   background-color: var(--footer-bg-color);
+}
+
+input:read-only,
+textarea:read-only {
+  opacity: 0.8 !important;
+  background-color: #3C3C3C;
 }
 
 #WikiContent,
@@ -129,10 +136,13 @@ a:hover {
   color: var(--footer-color);
 }
 
+input:invalid, textarea:invalid, select:invalid {
+  outline: 2px solid #5b3a3a;
+}
 /* main */
 
 .alarmstatus {
-  color: red;
+  color: #8a3535;
   font-weight: bold;
 }
 .warningstatus {
@@ -199,10 +209,7 @@ input[type=file]::file-selector-button {
   color: #b5deef;
   background-color: #292828
 }
-input:read-only, textarea:read-only {
-  opacity: 0.8 !important;
-  background-color: #413f3f
-}
+
 #LicenseContent,
 #LicenseHintContent {
   padding: 20px;
@@ -274,6 +281,34 @@ input:read-only, textarea:read-only {
   width: 90%;
 }
 
+
+#docEditContent_creDiv,
+#docEditContent_chgDiv {
+  width: 49%;
+  float: left;
+}
+
+#docAttachContentlabel,
+#docAttachFSContentlabel {
+    padding-bottom: 5px;  
+}
+
+#docAttachContentlabel label,
+#docAttachFSContentlabel label {
+    padding-bottom: 5px;  
+}
+
+#docAttachContentlabel label,
+#docAttachFSContentlabel label {
+  float: left;
+  width: auto;
+  padding-right: 5px;
+}
+
+#attachmentsContent {
+  background-color: var(--main-bg-color);
+}
+
 #MonConfigFrm label,
 #RestoreFrm label {
   width: 100%
@@ -330,8 +365,14 @@ input:read-only, textarea:read-only {
 .pongFormInputdocEditContentGrp0Col0 {
   width: 100%;
 }
-#docEditContentdoc {
+#docEditContentdata,
+#docEditFSContentdata {
   width: 95%;
+}
+
+#docEditFS .pongFormInputGrp0,
+#docEditFS .pongFormInputCol {
+  width: 100%;
 }
 
 #collDescContent, #col1viewContent, #collDocListContent, #docEditContent, #collQryContent {
@@ -369,6 +410,7 @@ input:read-only, textarea:read-only {
 }
 
 #collQryContentqryDiv p,
+#collQryContentqryHistDiv p,
 #collQryContentoptsDiv p,
 #AddBackupFrm p {
   margin-top: 7px;

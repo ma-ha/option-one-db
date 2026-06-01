@@ -3,8 +3,12 @@ const log     = require( '../helper/logger' ).log
 const db      = require( '../db-engine/db' )
 const pubsub  = require( '../cluster-mgr/pubsub' )
 const helper  = require( '../db-engine/db-helper' )
+const apiHelper = require( './api-helper' )
 
-const persistence = require( '../db-engine//db-persistence' )
+const dbDocUpd  = require( '../db-engine/db-doc-upd' )
+const dbDocFind = require( '../db-engine/db-doc-find' )
+
+// const persistence = require( '../db-engine//db-persistence' )
 
 const { httpSatusCodes : st }  = require( './http-codes' )
 
@@ -19,7 +23,12 @@ module.exports = {
   // updateMany,
   countDocuments,
   deleteData,
-  deleteById
+  deleteById,
+
+  addAttachment,
+  getAttachments,
+  getAttachment,
+  deleteAttachment
 }
 
 
@@ -35,7 +44,7 @@ function init( configParams ) {
 
 // ============================================================================
 
-async function insert( req, res ) {
+async function insert( req, res ) { // OK
   let tId = helper.dbgStart( 'insert' )
   try {
     let r = { fn: 'insert' }
@@ -57,7 +66,7 @@ async function insert( req, res ) {
 
 // ============================================================================
 
-async function find( req, res ) {
+async function find( req, res ) { // OK
   try {
     let r = { fn: 'find' }
     if ( await paramsOK( req, res, r, 'FND' ) ) {
@@ -71,7 +80,7 @@ async function find( req, res ) {
 }
 
 
-async function countDocuments( req, res ) {
+async function countDocuments( req, res ) { // OK
   try {
     let r = { fn: 'find' }
     if ( await paramsOK( req, res, r, 'CNT`' ) ) {
@@ -92,49 +101,77 @@ async function countDocuments( req, res ) {
 }
 
 
-async function getDocById( req, res ) {
+async function getDocById( req, res ) { // OK
   try {
     let r = { fn: 'getDocById' }
     if ( await paramsOK( req, res, r, 'GET' )  && req.params.id  ) {
       log.info( r.txnId, 'API find by id', req.params.db, req.params.coll, req.params.id )
-      let token = helper.extractToken( req.params.id )
-      let qryMsg = await db.creDocByIdMsg( r, req.params.id )
-      pubsub.sendRequest( r.txnId, token, qryMsg )
 
-      let result = await pubsub.getReplies( r.txnId )
-      let response = db.creDocsFoundResponse( r.txnId, result )
+      let response = await dbDocFind.findOneDoc( r, { _id: req.params.id } )
+
+      // let token = helper.extractToken( req.params.id )
+      // let qryMsg = await db.docByIdMsg( r, req.params.id )
+      // pubsub.sendRequest( r.txnId, token, qryMsg )
+
+      // let result = await pubsub.getReplies( r.txnId )
+      // let response = db.creDocsFoundResponse( r.txnId, result )
       log.info( r.txnId, 'API find by id response', req.params.id, 'cnt=' + response.dataLength )
       res.send( response )
     }
   } catch ( exc ) { sndSendSvrErr( 'getDocById', exc, res ) }
 }
 
+// ----------------------------------------------------------------------------
+// {
+//   "options": { "one": true }
+//   "filter": {
+//     "_id": "0dd8f833cedfd48582693331"
+//   },
+//   "update": {
+//     "$set": {
+//       "name": "John Doe"
+//     }
+//   }
+// }
 
-async function update( req, res ) {
+async function update( req, res ) { // OK
   try {
     let r = { fn: 'updateOne' }
     if ( await paramsOK( req, res, r, 'UPD' ) && updateOK( req, res, r ) ) {
-      log.info( r.txnId, 'API update', req.params ) 
+      log.info( r.txnId, 'API.update', req.params, req.body ) 
+    
 
       if ( req.body.options?.one ) { // update one
-        let doc = { _id : r.filter._id }
-        if ( ! doc._id ) {
-          let find = await db.findOneDoc( r, r.filter )
-          if ( find._error ) { return res.status( st.BAD_REQUEST ).send( find ) }
-          doc = find.doc
+        let origDoc = null
+        if (  r.filter._id ) {
+          // let find = await db.findOneDoc( r, r.filter )
+          let find = await dbDocFind.findOneDoc( r, r.filter )
+          log.debug( 'API.update', find )
+          if ( find._error ) { return res.status( st.NOT_FOUND ).send() }
+          origDoc = find.doc
+        } else {
+          // TODO filter for one
+          return res.status( st.BAD_REQUEST ).send()
         }
-        let result = await db.updateOneDoc( r, doc )
-        //log.info( 'API updateOne', result )
+
+        let result = await dbDocUpd.updateOneDoc( r, { _id: origDoc._id }, origDoc )
+        // dbMetrics.addDbMetric( r.db, r.coll, "upd", result )
+  
+        // // TODO check !!!
+        // let result = await db.updateOneDoc( r, doc )
+
+        log.debug( 'API.updateOne', result )
         if ( result._ok ) {
           res.send( result )
         } else {
-          res.status( st.BAD_REQUEST ).send( result )
+          res.status( st.SERVER_ERROR ).send( result )
         }
       
       } else { // update many
 
-        log.info( r.txnId, 'API update many...',  r.filter ) 
-        let find = await db.find( r.db, r.coll, r.filter, req.body.options )
+        log.info( r.txnId, 'API.updateMany',  r.filter ) 
+        // let find = await db.find( r.db, r.coll, r.filter, req.body.options )
+        let find = await dbDocFind.find( r.db, r.coll, r.filter, req.body.options )
         if ( ! find._error ) {
           let result = {
             _ok        : true, 
@@ -145,7 +182,10 @@ async function update( req, res ) {
           for ( let doc of find.data ) {
             // log.info( 'API update >> ', doc._id ) 
 
-            let updOne = await db.updateOneDoc( r, doc )
+            // let updOne = await db.updateOneDoc( r, doc )
+            let updOne = await dbDocUpd.updateOneDoc( r, { _id: doc._id }, doc )
+            // dbMetrics.addDbMetric( r.db, r.coll, "upd", updOne )
+    
             // log.info( 'API update >>>> ',updOne ) 
             if ( updOne._ok ) {
               result._okCnt ++
@@ -166,7 +206,7 @@ async function update( req, res ) {
 
 }
 
-async function replaceOne( req, res ) {
+async function replaceOne( req, res ) { // TODO
   try {
     let r = { fn: 'replaceOne' }
     if ( await paramsOK( req, res, r, 'RPL' ) ) {
@@ -178,7 +218,7 @@ async function replaceOne( req, res ) {
   } catch ( exc ) { sndSendSvrErr( 'replaceOne', exc, res ) }
 }
 
-async function deleteData( req, res ) {
+async function deleteData( req, res ) { // TODO
   log.info( 'API deleteData...', req.query ) 
   try {
     let r = { fn: 'deleteData' }
@@ -219,7 +259,7 @@ async function deleteData( req, res ) {
 }
 
 
-async function deleteById( req, res ) {
+async function deleteById( req, res ) { // TODO
   try {
     let r = { fn: 'deleteData' }
     if ( await paramsOK( req, res, r, 'DEL' )  ) {
@@ -231,6 +271,145 @@ async function deleteById( req, res ) {
   } catch ( exc ) { sndSendSvrErr( 'deleteOne', exc, res ) }
 }
 
+//-----------------------------------------------------------------------------
+
+async function addAttachment( req, res ) { // TODO
+  try {
+    let r = { fn: 'addAttachment' }
+    if ( ! req.files ) { return res.status( st.BAD_REQUEST ).send( 'File required' ) }
+    if ( await paramsOK( req, res, r, 'POST' )  && req.params.id  ) {
+      log.info( r.txnId, 'API add attachment', r.db, r.coll, req.params.id )
+      let attResult = await db.addAttachment(
+        r,
+        req.params.id,
+        req.files.file.name,
+        req.files.file.mimetype,
+        req.files.file.size,
+        req.files.file.data.toString('hex'),
+        req.query.label
+      )
+
+      if ( attResult._ok ) {
+        res.status( st.ACCEPTED ).send( 'OK' )
+      } else {
+        res.status( st.SERVER_ERROR ).send( 'Failed' )
+      }
+      
+    }
+  } catch ( exc ) { sndSendSvrErr( 'addAttachment', exc, res ) }
+}
+
+
+async function getAttachments( req, res ) { // TODO
+  try {
+    let r = { fn: 'getAttachments' }
+    if ( await paramsOK( req, res, r, 'POST' )  && req.params.id  ) {
+      log.info( r.txnId, 'API get attachments', req.params.db, req.params.coll, req.params.id )
+      let token = helper.extractToken( req.params.id )
+
+      let qryMsg = await db.docByIdMsg( r, req.params.id )
+      pubsub.sendRequest( r.txnId, token, qryMsg )
+
+      let result = await pubsub.getReplies( r.txnId )
+      let response = db.creDocsFoundResponse( r.txnId, result )
+      if ( response._ok && response.dataLength == 1 ) {
+        let doc = response.data[ 0 ]
+        if ( ! doc._attachment ) { 
+          res.send({})
+        } else {
+          res.send( doc._attachment )
+        }
+      }
+      return sndBadRequest( res, r.fn, 'Document not found' )
+    }
+  } catch ( exc ) { sndSendSvrErr( 'getAttachments', exc, res ) }
+}
+
+
+async function getAttachment( req, res ) { // TODO
+  try {
+    let r = { fn: 'getAttachment' }
+    if ( await paramsOK( req, res, r, 'POST' )  && req.params.id  && req.params.file ) {
+      log.info( r.txnId, 'API get attachment', req.params.db, req.params.coll, req.params.id, req.params.file )
+      let token = helper.extractToken( req.params.id )
+
+      let qryMsg = await db.docByIdMsg( r, req.params.id )
+      pubsub.sendRequest( r.txnId, token, qryMsg )
+
+      let result = await pubsub.getReplies( r.txnId )
+      let response = db.creDocsFoundResponse( r.txnId, result )
+      if ( response._ok && response.dataLength == 1 ) {
+        let doc = response.data[ 0 ]
+        if ( doc._attachment && doc._attachment[ req.params.file ] ) { 
+          let attMeta =  doc._attachment[ req.params.file ]
+          let attResult = await db.getAttachment(
+            {
+              fn    : 'getAttachment',
+              db    : req.params.db,
+              coll  : req.params.coll,
+              txnId : apiHelper.randomChar( 10 )
+            },
+            req.params.id,
+            req.params.file
+          )
+          // log.info( '*****', attResult )
+          // log.info( '*****', attResult.replyMsg[0].data )
+          // let fileContents = attResult.replyMsg[0].data
+          let fileContents = Buffer.from( attResult.replyMsg[0].data, 'hex' )
+          
+          res.set('Content-disposition', 'attachment; filename=' + req.params.file )
+          if ( attMeta._mimetype ) {
+            res.set('Content-Type', attMeta._mimetype )
+          }
+          // if ( attMeta._size ) {
+          //   res.set('Content-Size', attMeta._size )
+          // }
+          var stream = require( 'stream' )
+          var readStream = new stream.PassThrough()
+          readStream.end( fileContents )
+          readStream.pipe( res )
+          return
+
+        } else {
+          return sndBadRequest( res, r.fn, 'Attachment not found' )
+        }
+      }
+      return sndBadRequest( res, r.fn, 'Document not found' )
+    }
+  } catch ( exc ) { sndSendSvrErr( 'getAttachment', exc, res ) }
+}
+
+async function deleteAttachment( req, res ) { // TODO
+  try {
+    let r = { fn: 'getAttachment' }
+
+    let getDoc = await db.getDocById( req.params.db, req.params.coll, req.params.id )
+    if ( ! getDoc._ok ) {
+      return res.status( st.NOT_FOUND ).send( 'doc not found' )
+    }
+    if ( ! getDoc.doc._attachment || ! getDoc.doc._attachment[ req.params.file ] ) {
+      return res.status( st.NOT_FOUND ).send( 'attachment not found' )
+    }
+
+    let delResult = await db.deleteAttachment(
+      {
+        fn    : 'delAttachment',
+        db    : req.params.db,
+        coll  : req.params.coll,
+        txnId : apiHelper.randomChar( 10 )
+      },
+      req.params.id,
+      req.params.file
+    )
+
+    if ( delResult._ok ) {
+      return res.status( st.OK ).send()
+    } else {
+      return res.status( st.SERVER_ERROR ).send(  'ERROR: '+ delResult._error )
+    }
+
+  } catch ( exc ) { sndSendSvrErr( 'getAttachment', exc, res ) }
+}
 
 // ============================================================================
 // ============================================================================
@@ -272,12 +451,24 @@ async function paramsOK( req, res, r, txnPrefix) {
     return sndBadRequest( res, r.fn, 'Collection "'+ req.params.coll +'" not found' )  
   }
   log.debug( 'paramsOK', req.query )
+  let proj = null
+  if ( req.query?.projection ) { 
+    proj = req.query.projection
+  } else if ( req.body?.projection ) { 
+    proj = req.body.projection
+  }
+  let options = {}
+  if ( req.query?.options ) { 
+    options = req.query.options
+  } else if ( req.body?.options ) { 
+    options = req.body.options
+  }
   r.db      = req.params.db
   r.coll    = req.params.coll 
   r.dt      = Date.now()
   r.txnId   = ( txnPrefix ? txnPrefix + '.' : '' ) + helper.randomChar( 10 )
-  r.proj    = ( req.query.projection ? req.query.projection : req.body.projection )
-  r.options = ( req.query.options ? req.query.options : req.body.options )
+  r.proj    = proj
+  r.options = options
   return true
 }
 
@@ -285,9 +476,10 @@ async function paramsOK( req, res, r, txnPrefix) {
 function docOK( req, res, r ) {
   if ( ! req.body || ! req.body.doc ) {
     return sndBadRequest( res, r.fn, 'doc required' )
-  } else if ( ! req.body.options ) {
-    return sndBadRequest( res, r.fn, 'options required' )
   } 
+  // else
+  //   return sndBadRequest( res, r.fn, 'options required' )
+  // } 
 
   if ( Array.isArray( req.body.doc ) ) {
     r.doc  = req.body.doc
@@ -295,7 +487,11 @@ function docOK( req, res, r ) {
     r.doc  = [ req.body.doc ]
   }
   
-  r.options = req.body.options
+  if ( req.body.options ) {
+    r.options = req.body.options
+  } else {
+    r.options = {}
+  }
   return true
 }
 
@@ -316,11 +512,11 @@ function updateOK( req, res, r ) {
   if ( ! req.body ) { return sndBadRequest( res, r.fn, 'body required' )  }
   if ( ! req.body.filter  ) { return sndBadRequest( res, r.fn, 'filter required' ) }
   if ( ! req.body.update  ) { return sndBadRequest( res, r.fn, 'update required' ) }
-  if ( ! req.body.options ) { return sndBadRequest( res, r.fn, 'options required' ) }
+  // if ( ! req.body.options ) { return sndBadRequest( res, r.fn, 'options required' ) }
   // TODO: check update syntax
   r.filter   = req.body.filter
   r.update   = req.body.update
-  r.options  = req.body.options
+  r.options  =  ( req.body.options ? req.body.options : {} )
   return true
 }
 

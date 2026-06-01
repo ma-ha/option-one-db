@@ -1,3 +1,29 @@
+# TODO
+- [ ] Swagger: Add params
+- [ ] JS-API: Impl file upload
+
+# 0.13.4
+- Swagger page
+- Swagger fixes
+- app-api-data fixes
+
+# 0.13.3
+- attachment API
+
+# 0.13.2
+- delete attachments
+- delete doc in GUI form after delete
+
+# 0.13.1
+- upload/download attachments
+- Admin GUI: Edit doc single page
+
+# 0.13.0
+- add attachment
+
+# 0.12.1
+- fix index detection for AI and non $ai expr
+
 # 0.11.0
 - fix initDone loop
 - ASB friendly queue names

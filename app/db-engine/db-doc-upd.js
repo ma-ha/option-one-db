@@ -13,7 +13,8 @@ async function updateOneDoc( r, doc, origDoc, opt = {} ) {
   if ( ! r.txnId ) { r.txnId = 'UDP.'+helper.randomChar( 10 ) }
   try {
     let update = r.update
-    // if ( r.txnId.startsWith('DMX') ) log.info ( update, origDoc )
+    if ( ! r.txnId.startsWith('MXU') )
+      log.debug(  r.txnId, 'updateOneDoc', update, origDoc )
     for ( let updOp of  [ '$set', '$unset', '$inc','$min', '$max', '$push', '$addToSet', '$pop','$rename' ] ) {
       if ( update[ updOp ] ) { 
         if ( typeof  update[ updOp ] !== 'object' ) { 

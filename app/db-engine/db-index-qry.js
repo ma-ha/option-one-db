@@ -143,7 +143,7 @@ async function findDocCandidates( txnId, dbName, collName, query, idx ) {
       // simple field comparison ?
       if ( typeof qFld === 'string' || typeof  qFld === 'number' || typeof  qFld === 'boolean' ) {
 
-        log.info( txnId, 'findDocCandidates', 'simple index query', qKey, qryVal )
+        log.info( txnId, 'findDocCandidates', 'simple index query:', qKey, qryVal )
         let ids = await getDocsEqIndex( txnId, dbName, collName, qKey, qryVal )
         return { pureIdx: true, ids: ids }
 
@@ -162,7 +162,7 @@ async function findDocCandidates( txnId, dbName, collName, query, idx ) {
   
           } else {
   
-            log.info( txnId, 'findDocCandidates', 'condition index query', qKey, qFld )
+            log.info( txnId, 'findDocCandidates', 'condition index query:', qKey, qFld )
             let result = await getDocsCompIndex( txnId, dbName, collName, qKey, qFld )
             if ( ! result ) { return { _error: 'Error in query: ' +  qKey +' ' + qryVal }}
             if ( result._error ) { return { _error: 'Error in query: ' + idx._error +' ('+  qKey +' ' + qryVal+')' }}

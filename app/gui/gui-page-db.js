@@ -9,10 +9,10 @@ exports: module.exports = {
 
 function addDatabasePage( gui, showAddDB ) {
 
-  let userPg = gui.addPage( 'database', 'Pager', null , null )
-  userPg.navLabel = 'Database'
-  userPg.title    = 'Database'
-  userPg.setPageWidth( '90%' )
+  let dbPg = gui.addPage( 'database', 'Pager', null , null )
+  dbPg.navLabel = 'Database'
+  dbPg.title    = 'Database'
+  dbPg.setPageWidth( '90%' )
 
   gui.pages['database'].dynamicRow( async ( staticRows, req, page ) => {
       let userid = await gui.getUserIdFromReq( req )
@@ -154,6 +154,7 @@ function addDatabasePage( gui, showAddDB ) {
               title: "Query",
               id: "collQry", rowId: "collQry", 
               height: "120px", decor: "decor",
+              // height: "145px", decor: "decor",
               resourceURL: 'gui/coll/meta',
               type: 'pong-form', 
               moduleConfig: {
@@ -162,9 +163,13 @@ function addDatabasePage( gui, showAddDB ) {
                     { formFields: [
                       { id: "qry", type:'text', label: 'Query', rows:2, 
                         descr: "e.g. { ''name'': ''Joe'' } or { ''name'': { ''$like'': ''Joe'' } } or ..." },
+                      // { id: "qryHist", type:'select', label: 'Query', editable: false,
+                      //   optionsResource: { resourceURL:"gui/coll/qry-hist", 
+                      //   optionField: "qry", optionValue:"qry" }  },
                       { id: "opts", type:'text', label: 'Options', descr: "e.g. { ''MAX_ID_SCAN'': 100000, ''limit'': 200 }" },
                       { id: "id",  type:'text', hidden:true },
-                    ]} ] 
+                    ]}
+                  ]
                 }],
                 actions : [ 
                   { id:'QryBtn', actionName: 'Execute Query',
@@ -176,13 +181,13 @@ function addDatabasePage( gui, showAddDB ) {
             {
               title: "Documents",
               id: "collDocList", rowId: "collDocList",
-              height: "540px", decor: "decor",
+              height: "541px", decor: "decor",
               type: "pong-table",
               moduleConfig: {
                 rowId: "doc",
                 cols: [
-                  { id: "show", label: "Show", cellType: "button", width:"5%", 
-                    method: 'GET', update: [{ resId: 'docEdit' }  ], icon: 'ui-icon-pencil' },
+                  { id: "show", label: "Show", cellType: "button", width:"5%", icon: 'ui-icon-pencil',
+                    method: 'GET', update: [{ resId: 'docEdit' }, { resId: 'docAttach'} ] },
                   { id: "sel",  label: "", cellType: "selector", width: "5%"},
                   { id: "_id",  label: "ID", cellType: "text", width: "10%" },
                   { id: "pk",   label: "PK", cellType: "text", width: "15%" },
@@ -218,41 +223,62 @@ function addDatabasePage( gui, showAddDB ) {
             {
               title: "Document",
               id: "docEdit", rowId: "docEdit",
-              height: "430px", decor: "decor",
+              height: "390px", decor: "decor",
               type: 'pong-form', 
               moduleConfig: {
                 fieldGroups: [{
                   columns: [
                     { formFields: [
+                      { id: "doc",  type:'text', hidden: true },
                       { id: "coll", type:'text', label: 'Collection', hidden: true },
-                      { id: "_id", type:'text', label: 'ID', readonly: true },
+                      { id: "_id",  type:'text', label: 'ID', readonly: true },
                       { id: "_cre", type:'text', label: 'Create Date', readonly: true },
                       { id: "_chg", type:'text', label: 'Change Date', readonly: true },
-                      { id: "doc", type:'text', label: 'JSON', rows:'13' },
+                      { id: "data", type:'text', label: 'JSON', rows:'13' },
                     ] }
                   ] 
                 }],
                 actions : [ 
                   { id:'UpdDoc', actionName: 'Update',
                     modalQuestion:"Do you really want to change this document?",
-                    actionURL: 'gui/doc/upd', target: 'modal', update: [{ resId:'collDocList' }]  },
+                    actionURL: 'gui/doc/upd', target: 'modal',
+                    update: [{ resId:'collDocList' }] },
                   { id:'DeldDoc', actionName: 'Delete', method: 'DELETE',
                     modalQuestion:"Do you really want to delete this document?",
-                    actionURL: 'gui/doc', target: 'modal' ,update: [{ resId:'collDocList' }]   }
+                    actionURL: 'gui/doc',
+                    setData: [{ resId: 'docEdit' }],
+                    update: [{ resId: 'collDocList' }] },
+                  { id: 'EditLnk', link:"Edit in new tab",
+                    linkURL: "index.html?layout=edit-doc-nonav",
+                    getParams: [ "doc" ] }
                 ]
               },
               resourceURL: "gui/doc/data"
             },
             {
+              title: "Attach File",
+              id: "docAttach", rowId: "docAttach",
+              height: "95px", decor: "decor",
+              type: "pong-upload",
+              resourceURL: "gui/doc/attach",
+              moduleConfig: {
+                setData : [ "docEdit" ],
+                input: [
+                  { id: "doc", name:'doc', hidden: true },
+                  { id:'label', name:'label', label: 'Label:' }
+                ]
+              }
+            },
+            {
               title: "Add Document(s)",
               id: "docAdd", rowId: "docAdd",
-              height: "270px", decor: "decor",
+              height: "225px", decor: "decor",
               type: 'pong-form',         
               moduleConfig: {
                 fieldGroups: [{
                   columns: [{ formFields: [
                     { id: "id",   type:'text', label: 'DB/Coll',  hidden: true },
-                    { id: "doc",  type:'text', label: 'JSON', rows:'12' },
+                    { id: "doc",  type:'text', label: 'JSON', rows:'10' },
                   ] }] 
                 }],
                 actions : [ 
@@ -265,7 +291,7 @@ function addDatabasePage( gui, showAddDB ) {
             {
               title: "Upload CSV/JSON",
               id: "docUpload", rowId: "docUpload",
-              height: "100px", decor: "decor",
+              height: "90px", decor: "decor",
               type: "pong-upload",
               resourceURL: "gui/doc/upload",
               moduleConfig: {
@@ -290,6 +316,100 @@ function addDatabasePage( gui, showAddDB ) {
       }
 
     })
+
+  let editDocPg = gui.addPage( 'edit-doc-nonav', 'Edit Doc', null , null )
+  editDocPg.title = 'Edit Document'
+  editDocPg.setPageWidth( '90%' )
+
+  editDocPg.dynamicRow( async ( staticRows, req, page ) => {
+    log.debug( 'editDocPg', req.headers.referer )
+    let docId = null
+    try {
+      let params = req.headers.referer.split('?')[1]
+      let parmArr = params.split('&')
+      for ( let p of parmArr ) {
+        if ( p.startsWith('doc=') ) {
+          docId =  p.replace( 'doc=', '' )
+        }
+      }
+    } catch ( error ) {
+      log.error( 'editDocPg', error )
+    }
+    let pgViews = [
+      {
+        title: "Document",
+        id: "docEditFS", rowId: "docEditFS",
+        height: "600px", decor: "decor",
+        type: 'pong-form',
+        resourceURL: "gui/doc/data",
+        moduleConfig : {
+          fieldGroups: [{
+            columns: [
+              { formFields: [
+                { id: "doc",  type:'text', hidden: true },
+                { id: "coll", type:'text', label: 'Collection', hidden: true },
+                { id: "_id",  type:'text', label: 'ID', readonly: true },
+                { id: "_cre", type:'text', label: 'Create Date', readonly: true },
+                { id: "_chg", type:'text', label: 'Change Date', readonly: true },
+                { id: "data", type:'text', label: 'JSON', rows:'25' },
+              ] }
+            ] 
+          }],
+          actions : [ 
+            { id:'UpdDoc', actionName: 'Update',
+              modalQuestion:"Do you really want to change this document?",
+              actionURL: 'gui/doc/upd', target: 'modal',
+              update: [{ resId:'collDocList' }] },
+            { id:'DeldDoc', actionName: 'Delete', method: 'DELETE',
+              modalQuestion:"Do you really want to delete this document?",
+              actionURL: 'gui/doc' , target: 'modal',
+              update: [{ resId:'collDocList' }] },
+            { id: 'OnInit', onInit: 'GET' }
+
+          ]
+        }
+      }
+    ]
+
+    if ( docId ) {
+      pgViews.push( {
+        title: "Attachments",
+        id: "attachments", rowId: "attachments",
+        height: "120px", decor: "decor",
+        resourceURL: "gui/doc/attachments",
+        // type:"pong-icons"
+      })
+
+      pgViews.push({
+        title: "Attach File",
+        id: "docAttachFS", rowId: "docAttachFS",
+        height: "90px", decor: "decor",
+        type: "pong-upload",
+        resourceURL: "gui/doc/attachments",
+        moduleConfig: {
+          setData : [ "docEdit" ],
+          input: [
+            { id: "doc", name:'doc', hidden: true, value: docId },
+            { id:'label', name:'label', label: 'Label:' }
+          ]
+        }
+      })
+    }
+    return pgViews
+  })
+
+  let attPg = gui.addPage( 'attachment-nonav', 'Attachment', null , null )
+  attPg.title = 'Document Attachment'
+  attPg.setPageWidth( '90%' )
+
+  attPg.addView({
+    title: "Attachment",
+    id: "attachment", rowId: "attachment",
+    height: "700px", decor: "decor",
+    resourceURL: "gui/doc/attachment",
+    type: 'html'
+  })
+
 }
 
 // ============================================================================

@@ -196,10 +196,10 @@ async function updateJob( job, update ) {
   const JOB_UPD = { db : 'admin', coll: 'job', txnId : job.jobId, 
     update: { $set: update } 
   }
-  await updateOneDoc( JOB_UPD, { _id: job._id }, { allNodes: true } )
+  await updateJobDoc( JOB_UPD, { _id: job._id }, { allNodes: true } )
 }
 
-async function updateOneDoc( r, doc, opt = {} ) {
+async function updateJobDoc( r, doc, opt = {} ) {
   if ( ! doc._id ) { return { _error: 'Require _id' } }
   let docbyId = await persistence.getDocById( r.db, r.coll,  doc._id )
   if ( docbyId._error ) { return docbyId }

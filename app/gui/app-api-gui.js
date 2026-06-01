@@ -16,11 +16,16 @@ module.exports = {
   getDbNamesSp,
   getAllDbNames,
   getCollMeta,
+  getCollQryHist,
   getCollData,
   delCollData,
 
   getEmptyDoc,
   addDoc,
+  attachFile,
+  getAttachmentsHtml,
+  getAttachment,
+  deleteAttachment,
   uploadFile,
   delDoc,
   updDoc,
@@ -143,6 +148,199 @@ async function addDoc( req, res ) {
 }
 
 
+async function attachFile( req, res ) {
+  log.info( 'attachFile', req.files.file.name, req.body.label )
+  try {
+    if ( ! req.files ) { return res.send( 'File not found' ) }
+    if ( ! req.body.doc ) { return res.send( '"doc" is required' ) }
+    log.info( 'attachFile',  req.body.doc )
+    let dbName = req.body.doc.split('/')[0]
+    let collName = req.body.doc.split('/')[1]
+    let docId = req.body.doc.split('/')[2]
+    if ( ! dbName || ! collName || ! docId ) { return res.send( '"doc" is required' ) }
+
+    if ( ! req.xUserAuthz['*'] && ! req.xUserAuthz[ dbName ] ) {
+      return res.status( st.NOT_AUTHORIZED ).send() 
+    }
+
+    let getDoc = await db.getDocById( dbName, collName, docId )
+    if ( ! getDoc._ok ) {
+      return res.status( st.NOT_FOUND ).send( 'nor found' )
+    }
+
+    let attResult = await db.addAttachment(
+      {
+        fn    : 'addAttachment',
+        db    : dbName,
+        coll  : collName,
+        txnId : apiHelper.randomChar( 10 )
+      },
+      docId,
+      req.files.file.name,
+      req.files.file.mimetype,
+      req.files.file.size,
+      req.files.file.data.toString('hex'),
+      req.body.label
+    )
+
+    if ( ! attResult._ok ) {
+      return res.status( st.SERVER_ERROR ).send( 'Failed' )
+    }
+
+    let updDoc = await db.getDocById( dbName, collName, docId )
+    let uDoc = updDoc.doc
+
+    return res.send({
+      doc  : req.body.doc,
+      coll : dbName +'/'+ collName,
+      _id  : docId,
+      _cre : uDoc._cre,
+      _chg : uDoc._chg,
+      data : extractDocData( uDoc, true )
+    
+    })
+
+  } catch ( exc ) { 
+    log.warn( 'attachFile', exc )
+    res.send({ statusText : 'Failed' })
+  }
+}
+
+
+async function getAttachmentsHtml( req, res ) {
+  log.debug( 'getAttachmentHtml', req.query.doc )
+  let html = ''
+  try {
+    let dbName   = req.query.doc.split('/')[0]
+    let collName = req.query.doc.split('/')[1]
+    let docId    = req.query.doc.split('/')[2]
+    if ( ! dbName || ! collName || ! docId ) { return res.send( '"doc" is required' ) }
+        if ( ! req.xUserAuthz['*'] && ! req.xUserAuthz[ dbName ] ) {
+      return res.status( st.NOT_AUTHORIZED ).send() 
+    }
+
+    let getDoc = await db.getDocById( dbName, collName, docId )
+    if ( ! getDoc._ok ) {
+      return res.status( st.NOT_FOUND ).send( 'not found' )
+    }
+
+    if ( getDoc.doc[ '_attachment' ] ) {
+      let attachmentMap = getDoc.doc[ '_attachment' ]
+      for ( let fileName in attachmentMap ) {
+        let attMeta = attachmentMap[ fileName ]
+        html += '<p><a href="gui/load-attachment/'+req.query.doc+'/'+fileName+'" target="_blank">' 
+             + fileName + '</a> : '+ attMeta.label
+             html += '&nbsp;&nbsp;&nbsp;(<a href="gui/delete-attachment/'+req.query.doc+'/'+fileName+'">delete</a>)'
+        // TODO add attMeta
+        html += '</p>'
+      }
+    }
+
+  } catch ( exc ) {
+    log.error( 'getAttachmentHtml', exc )
+    res.status( st.SERVER_ERROR ).send()
+  }
+  res.send( html )
+}
+
+
+async function getAttachment( req, res ) {
+  log.info( 'getAttachment', req.params )
+  let attachment = null
+  try {
+
+    let getDoc = await db.getDocById( req.params.db, req.params.coll, req.params.id )
+    if ( ! getDoc._ok ) {
+      return res.status( st.NOT_FOUND ).send( 'doc not found' )
+    }
+    if ( ! getDoc.doc._attachment || ! getDoc.doc._attachment[ req.params.file ] ) {
+      return res.status( st.NOT_FOUND ).send( 'attachment not found' )
+    }
+
+    let attMeta =  getDoc.doc._attachment[ req.params.file ]
+
+    let attResult = await db.getAttachment(
+      {
+        fn    : 'getAttachment',
+        db    : req.params.db,
+        coll  : req.params.coll,
+        txnId : apiHelper.randomChar( 10 )
+      },
+      req.params.id,
+      req.params.file
+    )
+    // log.info( '*****', attResult )
+    // log.info( '*****', attResult.replyMsg[0].data )
+    // let fileContents = attResult.replyMsg[0].data
+    let fileContents = Buffer.from( attResult.replyMsg[0].data, 'hex')
+    
+    // const { writeFile } = require( 'node:fs/promises' )
+    // writeFile( '/tmp/x.png', fileContents )
+
+    res.set('Content-disposition', 'attachment; filename=' + req.params.file )
+    if ( attMeta._mimetype ) {
+      res.set('Content-Type', attMeta._mimetype )
+    }
+    // if ( attMeta._size ) {
+    //   res.set('Content-Size', attMeta._size )
+    // }
+  
+    // fileContents.pipe( res )
+
+    var stream = require( 'stream' )
+    var readStream = new stream.PassThrough()
+    readStream.end( fileContents )
+    readStream.pipe( res )
+    return
+
+  } catch ( exc ) {
+    log.error( 'getAttachment', exc )
+    res.send( 'ERROR: '+ exc.message )
+  }
+}
+
+
+async function deleteAttachment( req, res ) {
+  log.info( 'deleteAttachment', req.params, req.query )
+  let resultTxt = ''
+  try {
+
+    let getDoc = await db.getDocById( req.params.db, req.params.coll, req.params.id )
+    if ( ! getDoc._ok ) {
+      return res.status( st.NOT_FOUND ).send( 'doc not found' )
+    }
+    if ( ! getDoc.doc._attachment || ! getDoc.doc._attachment[ req.params.file ] ) {
+      return res.status( st.NOT_FOUND ).send( 'attachment not found' )
+    }
+
+    let delResult = await db.deleteAttachment(
+      {
+        fn    : 'delAttachment',
+        db    : req.params.db,
+        coll  : req.params.coll,
+        txnId : apiHelper.randomChar( 10 )
+      },
+      req.params.id,
+      req.params.file
+    )
+
+    if ( delResult._ok ) {
+      resultTxt = 'Deleted:'
+    } else {
+      resultTxt =  'ERROR: '+ delResult._error
+    }
+
+  } catch ( exc ) {
+    log.error( 'deleteAttachment', exc )
+    resultTxt =  'ERROR: '+ exc.message
+  }
+  res.send( resultTxt + '<br>'+ req.params.db +' '+ req.params.coll +' '+ req.params.id +' '+ req.params.file +
+  '<br><a href="../../../../../index.html?layout=edit-doc-nonav&doc='+ req.params.db +'/'+ req.params.coll +'/'+ req.params.id +'">Back</a>' )
+
+}
+
+// ----------------------------------------------------------------------------
+
 async function uploadFile( req, res ) {
   try {
     if ( ! req.files ) { return res.send( 'File not found' ) }
@@ -213,10 +411,14 @@ async function delDoc( req, res ) {
     let colName = req.body.coll.split('/')[1]
     let result = await db.deleteOneDoc( { txnId: txnId, db: dbName, coll: colName }, req.body._id )
     if ( result._error ) { return res.send( 'ERROR: '+result._error ) }
-    res.send('Deleted')
+    res.send({
+      doc : '', coll : '', _id : '',
+      _cre : '', _chg : '',
+      data : 'Deleted'
+    })
   } catch ( exc ) {
     log.warn( 'delDoc', exc )
-    res.send( 'Error: '+ exc.message )
+    res.status( st.SERVER_ERROR ).send( 'Error: '+ exc.message )
   }
 }
 
@@ -224,11 +426,11 @@ async function updDoc( req, res ) {
   let txnId = db.getTxnId( 'GUI' )
   try {
     if ( ! req.body._id ) { return res.send( 'id required' ) }
-    if ( ! req.body.doc ) { return res.send( 'doc required' ) }
+    if ( ! req.body.data ) { return res.send( 'doc required' ) }
     if ( ! req.body.coll || req.body.coll.indexOf('/') == -1 ) { return res.send( 'col required' ) }
     let dbName  = req.body.coll.split('/')[0]
     let colName = req.body.coll.split('/')[1]
-    let doc = JSON.parse( req.body.doc )
+    let doc = JSON.parse( req.body.data )
     doc._id  = req.body._id
     doc._cre = req.body._cre
     doc._chg = req.body._chg
@@ -622,6 +824,37 @@ async function getCollMeta( req, res ) {
   }
 }
 
+async function getCollQryHist( req, res ) {
+  try {
+    let txnId = db.getTxnId( 'GUI' )
+    log.info( txnId,  'QryHist', req.body )
+
+    let dbName = null
+    let collName = null
+    let qry = null
+    if ( req.query.id && req.query.id.indexOf('/') > 0 ) {
+      let param =  req.query.id.split('/')
+      dbName = param[0]
+      collName = param[1]
+      log.info( txnId,  'QryHist id:',  req.xUser, dbName, collName)
+    } else  if ( req.query.coll && req.query.coll.indexOf('/') > 0 ) {
+      let param =  req.query.coll.split('/')
+      dbName = param[0]
+      collName = param[1]
+      log.info( txnId,  'QryHist coll:',  req.xUser, dbName, collName )
+    } else {
+      log.info( txnId,  'QryHist q:',  req.xUser, req.query )
+    }
+
+    res.json( [{qry:''},{qry:'test'}] )
+
+  } catch ( exc ) {
+    log.warn( 'addDB', exc )
+    res.send( 'Error: '+ exc.message )
+  }
+}
+
+
 async function getCollData( req, res ) {
   let txnId = db.getTxnId( 'GUI' )
   log.debug( txnId,  'getCollData ...', req.query )
@@ -730,15 +963,15 @@ async function delCollData( req, res ) {
 async function getDocData( req, res ) {
   try {
     let txnId = db.getTxnId( 'GUI' )
-    log.info( txnId, 'getDoclData ...', req.query )
     let dbName = req.query.doc.split('/')[0]
     let coll   = req.query.doc.split('/')[1]
     let docId  = req.query.doc.split('/')[2]
-    log.info( txnId, 'getDoclData db, coll, docId', dbName, coll, docId  )
+    log.debug( txnId, 'getDocData db, coll, docId', dbName, coll, docId  )
     let result = await db.getDocById( dbName, coll, docId )
     
     if ( result && ! result._error) {
       let rec = {
+        doc  : req.query.doc,
         coll : dbName +'/'+ coll,
         _id  : docId,
         _cre : ( result.doc._cre ? (new Date( result.doc._cre)).toISOString() : (new Date()).toISOString()),
@@ -751,7 +984,7 @@ async function getDocData( req, res ) {
         delete docCopy._cre
         delete docCopy._chg
         delete docCopy._txnId
-        rec.doc = JSON.stringify( docCopy, null, '  ' )  
+        rec.data = JSON.stringify( docCopy, null, '  ' )  
       } 
   
       res.status( 200 ).send( rec )  
@@ -773,7 +1006,7 @@ function extractDocData( doc, format=false ) {
   delete docCopy._chg
   delete docCopy._txnId
   if ( format ) {
-    return JSON.stringify( docCopy, null, '  ' )
+    return JSON.stringify( docCopy, null, 2 )
   } else {
     return JSON.stringify( docCopy )  
   }

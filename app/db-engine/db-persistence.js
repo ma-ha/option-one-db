@@ -55,6 +55,10 @@ module.exports = {
   findDocCandidates,
   getAllDoc,
 
+  writeAttachment,
+  readAttachment,
+  deleteAttachment,
+
   listUserRights,
   
   genConsistencyCheck,
@@ -303,6 +307,7 @@ async function deleteDoc( jobId, dbName, collName, docId, options ) {
 // ============================================================================
 
 async function getDocById( dbName, collName, docId, options = {} ) {
+  // log.info( 'getDocById',  dbName, collName, docId )
   if ( ! db[ dbName ] ) { 
     return { _error: 'Not found: DB' } 
   }
@@ -340,6 +345,23 @@ async function getAllDoc( dbName, collName, query, options = { limit: 100 } ) {
   if ( ! db[ dbName ].collection[ collName ] ) {  return { _error: 'Not found: Collection' } }
   let docArr = await dbFile.loadAllDoc( dbName, collName, query, options )
   return docArr
+}
+
+async function writeAttachment( txnId, dbName, collName, docId, attId, hexData ) {
+  log.debug( txnId, 'writeAttachment', dbName, collName, docId )
+  writeOpsOngoing ++
+  let result = await dbFile.writeAttachment( txnId, dbName, collName, docId, attId, hexData )
+  writeOpsOngoing --
+  return result
+}
+
+async function readAttachment( txnId, dbName, collName, docId, attId ) {
+  return dbFile.readAttachment( txnId, dbName, collName, docId, attId )
+}
+
+
+async function deleteAttachment( txnId, dbName, collName, docId, attId ) {
+  return dbFile.deleteAttachment( txnId, dbName, collName, docId, attId )
 }
 
 // ============================================================================

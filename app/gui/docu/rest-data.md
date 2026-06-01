@@ -131,7 +131,7 @@ Authorization: HTTP header accessid / accesskey
 
 ## DELETE /db/:db/:coll
 
-Delete one document.
+Delete one or more documents.
 
 Query parameters:
 - query: Document filter
@@ -139,5 +139,114 @@ Query parameters:
 Parameters:
 - db: DB name 
 - coll: Collection name 
+
+Authorization: HTTP header accessid / accesskey 
+
+
+## POST /db/:db/:coll/:id/attachment
+
+Add an attachment (BLOB) to a document.
+
+Attachments have a file name and an info field. 
+
+Additional meta data can be added by updating the documents `_attachment` objects.
+
+Parameters:
+- db: DB name 
+- coll: Collection name 
+- id: _id of the document
+
+Response:
+- 202 Accepted
+- 400 Bad request
+  - file required
+  - parameters not valid
+- 401 not authorized
+- 500 Server error
+  - failed
+
+Authorization: HTTP header accessid / accesskey 
+
+## GET /db/:db/:coll/:id/attachment
+
+Get file names and meta data for all attachments of a document.
+
+Additional meta data can be added or updated by updating the documents `_attachment` objects.
+
+Parameters:
+- db: DB name 
+- coll: Collection name 
+- id: _id of the document
+
+Query parameters:
+- label: Text as label for the attachment
+
+Response:
+- 200 OK
+  - `_attachment` object of the document
+- 400 Bad request
+  - file required
+  - parameters not valid
+- 401 not authorized
+- 500 Server error
+  - failed
+
+Authorization: HTTP header accessid / accesskey 
+
+Example response:
+
+    {
+      "barcode.png": {
+        "label": "Barcode",
+        "_mimetype": "image/png",
+        "_size": 1061,
+        "_cre": 1767980152080
+      }
+    }
+
+## GET /db/:db/:coll/:id/attachment/:file
+
+Download an attachment (BLOB) of a specific document.
+
+Parameters:
+- db: DB name 
+- coll: Collection name 
+- id: _id of the document
+- file: The filename of the attachments
+
+Response:
+- 200 OK
+  - streams the file content
+- 400 Bad request
+  - parameters not valid
+- 401 not authorized
+- 404 not found
+  - doc id not found
+  - attachment not found
+- 500 Server error
+  - failed
+
+Authorization: HTTP header accessid / accesskey 
+
+## DELETE /db/:db/:coll/:id/attachment/:file
+
+Removes the `file` attachment from the specific document.
+
+Parameters:
+- db: DB name 
+- coll: Collection name 
+- id: _id of the document
+- file: The filename of the attachments
+
+Response:
+- 200 OK
+- 400 Bad request
+  - parameters not valid
+- 401 not authorized
+- 404 not found
+  - doc id not found
+  - attachment not found
+- 500 Server error
+  - failed
 
 Authorization: HTTP header accessid / accesskey 

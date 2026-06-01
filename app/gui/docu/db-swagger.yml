@@ -1,22 +1,22 @@
 openapi: 3.1.0
 info:
   title: Option One DB API
-  version: 0.6.0
+  version: 0.13.0
 
   description: |-
-    Option One DB API
-
-    [GitHub](https://github.com/ma-ha)
+    Option One DB API, see [GitHub project](https://github.com/ma-ha)
 
   license:
-    name: MIT
+    name: Option One DB License
+    url: https://github.com/ma-ha/option-one-db/blob/master/LICENSE.md
+
 
 servers:
   - url: https://localhost:9000/db
 
 security:
-  - api_key:
-      - write:data
+  - accessId: []
+    accessKey: []
 
 tags:
   - name: db
@@ -155,7 +155,7 @@ paths:
               type: object
       responses:
         '202':
-          description: Acceptes
+          description: Accepts
         '400':
           description: Bad request
         '401':
@@ -178,6 +178,20 @@ paths:
             type: object
             examples: 
               - '{"abc.z": { "$ge": 0.5 }}}'
+        - name: options
+          in: query
+          description: Options
+          required: false
+          schema:
+            type: object
+            examples: 
+              - '{}'
+        - name: projection
+          in: query
+          description: Projection
+          required: false
+          schema:
+            type: array
       responses:
         '200':
           description: OK
@@ -194,6 +208,13 @@ paths:
       tags:
         - db
       summary: Update document
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              examples:
+                - { "one": true, "filter": { "_id": "0dd8f833cedfd48582693331"}, update: { "$set": { "name": "John Doe" } } }
       responses:
         '200':
           description: OK
@@ -395,6 +416,142 @@ paths:
         '500':
           description: Server error
 
+  /db/{db}/{coll}/{id}/attachment:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string      
+      - name: coll
+        in: path
+        description: Collection name
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        description: Document id
+        required: true
+        schema:
+          type: string
+    
+    post:
+      tags:
+        - db
+      summary: Add an attachment (BLOB) to a document.
+      parameters:
+        - name: label
+          in: query
+          description: Text as label for the attachment 
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+    get:
+      tags:
+        - db
+      summary: Get file names and meta data for all attachments of a document.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: 
+                barcode.png:
+                  label: Barcode
+                  _mimetype: image/png
+                  _size: 1061
+                  _cre: 1767980152080
+                  
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+  /db/{db}/{coll}/{id}/attachment/{filename}:
+    parameters:
+      - name: db
+        in: path
+        description: Database name
+        required: true
+        schema:
+          type: string      
+      - name: coll
+        in: path
+        description: Collection name
+        required: true
+        schema:
+          type: string
+      - name: id
+        in: path
+        description: Document id
+        required: true
+        schema:
+          type: string
+      - name: filename
+        in: path
+        description: Filename of the attachment for the document
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags:
+        - db
+      summary: Download an attachment (BLOB) of a specific document.
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
+
+    delete:
+      tags:
+        - db
+      summary: Removes the attachment from the specific document.
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '401':
+          description: Not authorized
+        '404':
+          description: Not found
+        '500':
+          description: Server error
   /log:
 
     get:
@@ -508,7 +665,7 @@ paths:
     get:
       tags:
         - admin
-      summary: Listbackup schedules
+      summary: List backup schedules
       responses:
         '200':
           description: OK
@@ -569,8 +726,12 @@ components:
           schema:
             $ref: '#/components/schemas/CreCollection'
   securitySchemes:
-    api_key:
+    accessId:
       type: apiKey
-      name: api_key
       in: header
+      name: accessid
+    accessKey:
+      type: apiKey
+      in: header
+      name: accesskey
 

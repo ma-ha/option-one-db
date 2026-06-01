@@ -528,9 +528,9 @@ async function getReplies( txnId, minReplyCnt = QUORUM ) {
         _ok: true, 
         replyMsg: replyMsg[ txnId ].msg 
       } // TODO improve
-
+      // log.info( 'replyMsg', replyMsg[ txnId ] )
       for ( let msg of replyMsg[ txnId ].msg ) {
-        if ( msg._error ) { 
+        if ( msg && msg._error ) { 
           result._ok    = false 
           result._error = msg._error
         }

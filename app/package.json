@@ -1,6 +1,6 @@
 {
   "name": "option-one-db",
-  "version": "0.11.0",
+  "version": "0.13.4",
   "description": "Cloud native high scalable document DB",
   "main": "index.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "express-fileupload": "^1.5.2",
     "hash-sum": "^2.0.0",
     "js-yaml": "^4.1.1",
-    "node-cron": "^4.2.1"
+    "node-cron": "^4.2.1",
+    "swagger-ui-express": "^5.0.1"
   }
 }

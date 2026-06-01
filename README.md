@@ -10,6 +10,7 @@ Option One DB is the next generation open source document database with built in
 - Integrated GUI for administration, monitoring and data access
 - Simple user and API access management
 - Built in backup scheduler
+- Manage (binary) attachment for documents
 
 ![DB admin](screen-db-dark.png) 
 
@@ -135,7 +136,7 @@ will result in GUI/API URL: `http://localhost:9000/some-path`
 # Configuration Parameter Reference
 
 The config parameters can be passed 
-1. in the `initDB( params )` as properties of the `parms` object or
+1. in the `initDB( params )` as properties of the `params` object or
 2. as environment variables (has priority)
 
 | Parameter              | Explanation                     | Default Value        |
@@ -165,6 +166,7 @@ The config parameters can be passed
 | RMQ_URL                | RabbitMQ URL for multi-node     | `"amqp://localhost"` |
 | RMQ_PREFIX             | RabbitMQ queue name prefix      | `"DB_"`              |
 | RMQ_JOB_EXCHANGE       | RabbitMQ job topic name         | `"DB_node_jobs"`     |
+| API_URL                | Injected in Swagger page        | `"http://localhost:9000/db"` |
 
 ## Configure a Single Node DB
 

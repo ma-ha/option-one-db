@@ -3,6 +3,8 @@
 - [[getting-started-js.md|Getting started]]
 - [[js-sdk.md|JS SDK Reference]]
 - [[query.md|Index and query documents]]
+- [[ai-embedding.md|Using AI search]]
+- [[js-attachment.md|Working with document attachments (files, BLOBs)]]
 
 # REST API Reference
 

@@ -24,6 +24,9 @@ module.exports = {
   loadCollIdxMap,
 
   creDoc,
+  writeAttachment,
+  readAttachment,
+  deleteAttachment,
   replaceDocByIdPrep,
   replaceDocByIdCommit,
   replaceDocByIdRollback,
@@ -374,6 +377,51 @@ async function creDoc( dbName, collName, doc, options ) {
   } catch ( exc ) { return errorMsg( 'creDoc', exc ) }
 }
 
+async function writeAttachment( txnId, dbName, collName, docId, attId, hexData ) {
+  try {
+    let folder = await dir( dbName, collName, docId )
+    log.info( txnId, 'writeAttachment', folder, docId, attId )
+    await ensureDirExists( folder +'/'+ docId )
+    await writeFile( folder +'/'+ docId +'/'+  attId, hexData )
+    return { _ok: true }
+  } catch ( exc ) { return errorMsg( 'writeAttachment', exc ) }
+}
+
+async function readAttachment( txnId, dbName, collName, docId, attId ) {
+  try {
+    let folder = await dir( dbName, collName, docId )
+    log.debug( txnId, 'readAttachment', folder, docId, attId )
+    let attFileName = folder +'/'+ docId +'/'+  attId
+    log.debug( 'dbFile.readAttachment', attFileName )
+    if ( await fileExists( attFileName ) ) { 
+      let data = await readFile(  attFileName  )
+      let result = { _ok: true, data : data.toString() }
+      return result
+    } else {
+      return errorMsg( 'readAttachment', 'File does not exist' )
+    }
+  } catch ( exc ) { return errorMsg( 'readAttachment', exc ) }
+}
+
+
+async function deleteAttachment( txnId, dbName, collName, docId, attId ) {
+  try {
+    let folder = await dir( dbName, collName, docId )
+    log.info( txnId, 'dbFile.deleteAttachment', folder, docId, attId )
+    let attFileName = folder +'/'+ docId +'/'+  attId
+    log.info( 'dbFile.deleteAttachment file:', attFileName )
+    if ( await fileExists( attFileName ) ) { 
+      await rm( attFileName  )
+      return  { _ok: true }
+    } else {
+      return { _error: 'File does not exist' }
+    }
+  } catch ( exc ) {
+    log.error(  'dbFile.deleteAttachment.exc', exc )
+    return { _error: 'Failed to delete file' }
+  }
+}
+
 
 //=============================================================================
 
@@ -444,6 +492,9 @@ async function deleteDocById( dbName, collName, docId, options ) {
       await rm( docFile +'_.json' ) // TODO perhaps be more polite ?
     }
     await rm( docFile +'.json' )
+    if ( await dirExists( docFile ) ) { // attachments dir
+      await rm( docFile, { recursive: true })
+    }
     return { _ok: true }
   } catch ( exc ) { return errorMsg( 'deleteDocById', exc ) }
 }
@@ -488,7 +539,7 @@ async function loadDocById( dbName, collName, docId, options ) {
       return { _error: 'Not found' }
     }
   } catch ( exc ) { 
-    log.error( 'loadDocById ', dbName+'/'+ collName+'/'+docId, exc.message )
+    log.error( 'loadDocById ', dbName+'/'+ collName+'/'+docId, exc )
     return errorMsg( 'loadDocById '+dbName+'/'+ collName+'/'+docId, exc.message ) 
   }
 }

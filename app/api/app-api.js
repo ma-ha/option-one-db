@@ -62,6 +62,11 @@ async function init( app, configParams ) {
   svc.delete( '/db/:db/:coll',            secChk, data.deleteData ) // one or many
   svc.delete( '/db/:db/:coll/:id',        secChk, data.deleteById ) // one or many
 
+  svc.post( '/db/:db/:coll/:id/attachment',       secChk, upload(), data.addAttachment )
+  svc.get(  '/db/:db/:coll/:id/attachment',       secChk, data.getAttachments )
+  svc.get(  '/db/:db/:coll/:id/attachment/:file', secChk, data.getAttachment )
+  svc.delete( '/db/:db/:coll/:id/attachment/:file', secChk, data.deleteAttachment )
+
   svc.get(   '/sp',                       adminChk, admin.getSP )
   svc.post(  '/sp',                       adminChk, admin.addSP )
   svc.delete('/sp',                       adminChk, admin.delSP )
@@ -98,9 +103,14 @@ async function init( app, configParams ) {
   svc.get(  '/gui/dbnames/sp',           secChk, gui.getDbNamesSp )
   svc.get(  '/gui/dbnames-all',          secChk, gui.getAllDbNames )
   svc.get(  '/gui/coll/meta',            secChk, gui.getCollMeta )
+  svc.get(  '/gui/coll/qry-hist',        secChk, gui.getCollQryHist )
   svc.get(  '/gui/coll/data',            secChk, gui.getCollData )
   svc.delete('/gui/coll/data',           secChk, gui.delCollData )
   svc.post( '/gui/doc/add',              secChk, gui.addDoc )
+  svc.post( '/gui/doc/attach',           secChk, upload(), gui.attachFile )
+  svc.get(  '/gui/doc/attachments/html', secChk, gui.getAttachmentsHtml )
+  svc.get(  '/gui/load-attachment/:db/:coll/:id/:file',   secChk, gui.getAttachment )
+  svc.get(  '/gui/delete-attachment/:db/:coll/:id/:file', secChk, gui.deleteAttachment )
   svc.post( '/gui/doc/upload',           secChk, upload(), gui.uploadFile )
   svc.get(  '/gui/doc/add',              secChk, gui.getEmptyDoc )
   svc.post( '/gui/doc/upd',              secChk, gui.updDoc )

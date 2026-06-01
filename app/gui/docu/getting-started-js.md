@@ -61,7 +61,8 @@ In documents the following property names are reserved (and are auto-generated):
 * `_cre` create date of the document in the DB
 * `_chg` update date of the document in the DB
 * `_txnId` for replication consistency check
-* `_keyVal`inside key properties
+* `_keyVal` inside key properties
+* `_attachment` which is a map of attachments ... feel free to add additional properties to attachment objects as meta data
 
 # Query Documents
 
