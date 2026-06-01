@@ -1,7 +1,7 @@
 # Option-One-DB 
 
 Option One DB is the next generation open source document database with built in AI search:
-- Fast and light weight
+- Fast and light weight (startup RAM: ca. 30 MB)
 - Scales horizontally
   ... but runs as single server on a laptop or even a Raspberry Pi
 - Optimized to run in a container and Kubernetes
