@@ -1,27 +1,27 @@
 # Option-One-DB 
 
-Option One DB is the next generation open source document database with built in AI search:
+Option One DB is the next generation open source JSON document database with built in AI search:
 - Fast and light weight (startup RAM: ca. 30 MB)
 - Scales horizontally
-  ... but runs as single server on a laptop or even a Raspberry Pi
+  ... but runs as single server on a laptop ... or even a Raspberry Pi
 - Optimized to run in a container and Kubernetes
 - Powerful indexing and query engine
-  - use LLM to create embedding indexes 
-- Integrated GUI for administration, monitoring and data access
+  - use LLM to create embedding indexes for AI search
+- Manage (binary) attachment for documents
 - Simple user and API access management
 - Built in backup scheduler
-- Manage (binary) attachment for documents
+- Integrated GUI for administration, monitoring and data access
 
 ![DB admin](screen-db-dark.png) 
 
 Status: EXPERIMENTAL -- use at your own risk!!
 
-## Start a single server DB
+## TL;DR ... Start a single server DB
 
-Run the server as docker container locally
+### Run the server as docker container locally
 
 ```bash
-docker run -d --name "option_one_db"  -p 9000:9000  -e DB_POD_NAME='my-db' -v /home/my-user/db/:/option-one/db/ -v /home/my-user/backup:/option-one/backup/ mahade70/option-one-db:0.8-single
+docker run -d --name "option_one_db"  -p 9000:9000  -e DB_POD_NAME='my-db' -v /home/my-user/db/:/option-one/db/ -v /home/my-user/backup:/option-one/backup/ mahade70/option-one-db:0.12-single
 ```
 
 (This creates the folder `/home/my-user/db` and `/home/my-user/backup` if they are not existing.)
@@ -30,13 +30,23 @@ Get the user and password from the startup logs:
 
     docker logs option_one_db
 
-Open http://localhost:9000/db and log in.
+Open `http://localhost:9000/db` and log in.
 
-Check out the GitLab repo how to run the server as NodeJS process without docker.
+### Run the server as NodeJS process
+
+Alternatively, start single Option One DB server on console:
+
+```bash
+(cd app; npm install)
+export ADMIN_PWD="super-secret-password"
+node startSingleNodeLocal.js
+```
+
+Open `http://localhost:9000/db` and login as "admin".
 
 ## Start a DB cluster in Kubernetes
 
-*Remark: Please understand this deployment as a starting point which you need to improve and harden. I.e. this example does not contain secrets (just "env"), PDBs, network policies, resources, security policies, ...*
+*Remark: Please see this deployment as a simplified starting point. Please improve and harden it, add proper secrets (just "env"), PDBs, network policies, resources, security policies, ...*
 
 Set up a RabbitMQ for the pod-to-pod communication: See https://www.rabbitmq.com/kubernetes/operator/quickstart-operator, login to the admin GUI and create a user and grant access to  `/` virtual hosts.
 
@@ -54,7 +64,7 @@ kubectl create namespace db
 export REGISTRY="mahade70"
 export ADMIN_PWD="super-secret-password"
 export MIN_READY_SECS=5  # for a rolling updates this should be higher, e.g. 60
-export VERSION="0.9"
+export VERSION="0.12"
 wget https://raw.githubusercontent.com/ma-ha/option-one-db/master/k8s-deploy/option-one-db-3node-cluster.yml
 cat option-one-db-3node-cluster.yml | envsubst | kubectl apply -n db -f -
 ```
@@ -62,7 +72,7 @@ The initial admin password is in the logs:
 
     kubectl logs -n db option-one-db-0 -f
 
-Open http://${K8S-GATEWAY-IP}/option-one-db and log in.
+Open `http://${K8S-GATEWAY-IP}/option-one-db` and log in.
 
 If all cluster nodes are in "OK" state, the tokens 0..f should be distributed evenly w/o duplicates. 
 Logs or GUI should show something like this:
