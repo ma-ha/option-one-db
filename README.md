@@ -1,16 +1,15 @@
 # Option-One-DB 
 
 Option One DB is the next generation open source JSON document database with built in AI search:
-- Fast and light weight (startup RAM: ca. 30 MB)
-- Scales horizontally
+- **Fast** and **light weight** (startup RAM: ca. 30 MB)
+- **Scales horizontally**
   ... but runs as single server on a laptop ... or even a Raspberry Pi
-- Optimized to run in a container and Kubernetes
-- Powerful indexing and query engine
-  - use LLM to create embedding indexes for AI search
-- Manage (binary) attachment for documents
-- Simple user and API access management
-- Built in backup scheduler
-- Integrated GUI for administration, monitoring and data access
+- Optimized to run in a container and **Kubernetes**
+- **Powerful indexing and query** engine + use LLM to create embedding indexes for **AI search**
+- Manage (binary) **attachments** for documents
+- Simple user and **API** access management
+- Built in **backup scheduler**
+- Integrated **GUI** for administration, monitoring and data management
 
 ![DB admin](screen-db-dark.png) 
 
@@ -43,43 +42,6 @@ node startSingleNodeLocal.js
 ```
 
 Open `http://localhost:9000/db` and login as "admin".
-
-## Start a DB cluster in Kubernetes
-
-*Remark: Please see this deployment as a simplified starting point. Please improve and harden it, add proper secrets (just "env"), PDBs, network policies, resources, security policies, ...*
-
-Set up a RabbitMQ for the pod-to-pod communication: See https://www.rabbitmq.com/kubernetes/operator/quickstart-operator, login to the admin GUI and create a user and grant access to  `/` virtual hosts.
-
-```bash
-RMQ_USER="rabbitmq_username"
-RMQ_PWD="rabbitmq_password"
-RMQ_NAMESPACE="rabbritmq_namespace"
-export RMQ_URL="amqp://${RMQ_USER}:${RMQ_PWD}@rabbitmq.${RMQ_NAMESPACE}"
-```
-This will also deploy a RabbitMQ and three database pods. 
-You can scale the cluster any time later. 
-
-```bash
-kubectl create namespace db
-export REGISTRY="mahade70"
-export ADMIN_PWD="super-secret-password"
-export MIN_READY_SECS=5  # for a rolling updates this should be higher, e.g. 60
-export VERSION="0.12"
-wget https://raw.githubusercontent.com/ma-ha/option-one-db/master/k8s-deploy/option-one-db-3node-cluster.yml
-cat option-one-db-3node-cluster.yml | envsubst | kubectl apply -n db -f -
-```
-The initial admin password is in the logs:
-
-    kubectl logs -n db option-one-db-0 -f
-
-Open `http://${K8S-GATEWAY-IP}/option-one-db` and log in.
-
-If all cluster nodes are in "OK" state, the tokens 0..f should be distributed evenly w/o duplicates. 
-Logs or GUI should show something like this:
-
-    db01:9011/db   (OK)  [ 0 3 6 9 c f ]
-    db02:9012/db   (OK)  [ 1 4 7 a d ]
-    db03:9013/db   (OK)  [ 2 5 8 b e ]
 
 
 ## JS SDK usage example
@@ -188,7 +150,51 @@ Settings required:
     MODE="SINGLE_NODE"
     DATA_REPLICATION=1
   
-Important: Currently it is not supported to extend a single node db to a cluster.
+*Important: Currently it is not supported to extend a single node db to a cluster. Backup the single node and restore the backup on the multi-node cluster.*
+
+
+## Start a DB cluster in Kubernetes
+
+The provided deployment file is a simplified starting point. Please improve and harden it and add proper secrets (just "env"), PDBs, network policies, resources, security policies, ...
+
+Set up a RabbitMQ for the pod-to-pod communication: See https://www.rabbitmq.com/kubernetes/operator/quickstart-operator, login to the admin GUI and create a user and grant access to  `/` virtual hosts.
+
+```bash
+RMQ_USER="rabbitmq_username"
+RMQ_PWD="rabbitmq_password"
+RMQ_NAMESPACE="rmq"
+export RMQ_URL="amqp://${RMQ_USER}:${RMQ_PWD}@rabbitmq.${RMQ_NAMESPACE}"
+```
+
+Please check the [deployment file](k8s-deploy/option-one-db-3node-cluster.yml) and adjust the environment variables to your needs:
+
+```bash
+kubectl create namespace db
+export DOCKER_REGISTRY="mahade70" # this pulls from Docker Hub, feel free to build/push your own container into your own container registry
+export ADMIN_PWD="super-secret-password"
+export K8S_STORAGE_CLASS="csi-rbd-sc"
+export K8S_GATEWAY="my-gateway"
+export K8S_GATEWAY_NS="default"
+export MIN_READY_SECS=15  # for a rolling updates it's safer to be higher, 60 sec works well
+export VERSION="0.12"
+wget https://raw.githubusercontent.com/ma-ha/option-one-db/master/k8s-deploy/option-one-db-3node-cluster.yml
+cat option-one-db-3node-cluster.yml | envsubst | kubectl apply -n db -f -
+```
+
+This will deploy a  three database pods. You can scale the cluster any time later. 
+
+Check the logs:
+
+    kubectl logs -n db option-one-db-0 -f
+
+If all cluster nodes are in "OK" state, the tokens 0..f should be distributed evenly w/o duplicates. 
+Logs or GUI should show something like this:
+
+    db01:9011/db   (OK)  [ 0 3 6 9 c f ]
+    db02:9012/db   (OK)  [ 1 4 7 a d ]
+    db03:9013/db   (OK)  [ 2 5 8 b e ]
+
+Open `http://MY-K8S-GATEWAY/option-one-db` and log in as "admin".
 
 ## Min and Max Cluster Size
 

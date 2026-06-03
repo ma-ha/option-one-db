@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: option-one-db
-          image: ${REGISTRY}/option-one-db:${VERSION}
+          image: ${DOCKER_REGISTRY}/option-one-db:${VERSION}
           env:
             - name: API_PATH
               value: "/option-one-db"
@@ -32,15 +32,25 @@ spec:
           volumeMounts:
             - name: option-one-db
               mountPath: /db
+            - name: option-one-db-bac
+              mountPath: /backup
   volumeClaimTemplates:
     - metadata:
         name: option-one-db
       spec:
         accessModes: [ "ReadWriteOnce" ]
-        storageClassName: "csi-rbd-sc"
+        storageClassName: $K8S_STORAGE_CLASS
         resources:
           requests:
             storage: 5Gi
+    - metadata:
+        name: option-one-db-bac
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: $K8S_STORAGE_CLASS
+        resources:
+          requests:
+            storage: 10Gi
 ---
 apiVersion: v1
 kind: Service
@@ -64,8 +74,8 @@ metadata:
   name: option-one-db
 spec:
   parentRefs:
-  - name: my-gateway
-    namespace: default
+  - name: $K8S_GATEWAY
+    namespace: $K8S_GATEWAY_NS
   rules:
   - matches:
     - path:
