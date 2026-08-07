@@ -10,6 +10,7 @@ Option One DB is the next generation open source JSON document database with bui
 - Simple user and **API** access management
 - Built in **backup scheduler**
 - Integrated **GUI** for administration, monitoring and data management
+- Built in MCP-Server enables agents/prompts to query, retrieve or store data or can help to develop data-driven client applications
 
 ![DB admin](screen-db-dark.png) 
 
@@ -20,7 +21,7 @@ Status: EXPERIMENTAL -- use at your own risk!!
 ### Run the server as docker container locally
 
 ```bash
-docker run -d --name "option_one_db"  -p 9000:9000  -e DB_POD_NAME='my-db' -v /home/my-user/db/:/option-one/db/ -v /home/my-user/backup:/option-one/backup/ mahade70/option-one-db:0.12-single
+docker run -d --name "option_one_db"  -p 9000:9000  -e DB_POD_NAME='my-db' -v /home/my-user/db/:/option-one/db/ -v /home/my-user/backup:/option-one/backup/ mahade70/option-one-db:0.14-single
 ```
 
 (This creates the folder `/home/my-user/db` and `/home/my-user/backup` if they are not existing.)
@@ -83,7 +84,7 @@ In collection of type 1 you can insert the same document multiple times.
 
 In collection type 2 you get an error, if you try to insert a doc, where an existing doc has the same PK. Insert will also fail s all PK fields are missing in the document. 
 
-## Indexes
+## Indexes, AI and Document Expiry
 
 To speed up queries you can 
 * add classic indexes for any field
@@ -94,6 +95,12 @@ AI index and query example:
 ![AI index and query example](ai-search.png)
 
 Details see [AI search](app/gui/docu/ai-embedding.md) in the inline docu.
+
+Indexing can also be used to expire documents:
+* use `expiresAfterSeconds` to define lifetimes for a documents
+* use `expiresAt` to define a date when the document should be deleted
+
+Details see [inline docu](app/gui/docu/query.md).
 
 ## Define API and GUI URL Path (default: /db)
 
@@ -132,6 +139,7 @@ The config parameters can be passed
 | GUI_SHOW_USER_MGMT     | Show user management in GUI     | `true`               |
 | MAX_ID_SCAN            | Max docs in a full scan query   | `10000`              |
 | MAX_CACHE_MB           | Size of in-memory-cache (MB)    |  `10`                |
+| MCP_SERVER             | Start a MCP server              | `true`               |
 | MODE                   | `"RMQ"` for multi node cluster, `"SINGLE_NODE"` for a one node DB |  `"RMQ"` |
 | NODE_SYNC_INTERVAL_MS  | Cluster: The sync interval of the nodes (ms) |  `10000` |
 | PORT                   | Port for GUI and API            | `9000`               |
@@ -176,7 +184,7 @@ export K8S_STORAGE_CLASS="csi-rbd-sc"
 export K8S_GATEWAY="my-gateway"
 export K8S_GATEWAY_NS="default"
 export MIN_READY_SECS=15  # for a rolling updates it's safer to be higher, 60 sec works well
-export VERSION="0.12"
+export VERSION="0.14"
 wget https://raw.githubusercontent.com/ma-ha/option-one-db/master/k8s-deploy/option-one-db-3node-cluster.yml
 cat option-one-db-3node-cluster.yml | envsubst | kubectl apply -n db -f -
 ```
@@ -212,11 +220,10 @@ You can scale the cluster until you have 16 master nodes and 2x16 replica only n
 
 ## Configure Replication
 
-By default data is stored in 3 replicas: One master and 2 slaves. 
-The replicas are always in different pods. The default quorum is 2, means:
-If 2 replica pods say OK, the DB transaction is committed. 
+By default each document is stored in 3 replicas on different pods: One master and 2 slaves.
+The default quorum is 2 -- so if 2 pods say OK, a DB transaction is committed.
 
-Resulting in these DB modes:
+In general a DB can run in one of three modes:
 
 1. `DATA_REPLICATION=3` (default for cluster)
    ... requires min 3 DB pods initially. More are welcome, but can be added any time. Will continue to work if one pod is temporarily not available.
@@ -225,7 +232,7 @@ Resulting in these DB modes:
 3. `DATA_REPLICATION=1`
    for single server DB.
 
-Currently it's not supported to change the `DATA_REPLICATION` for a existing DB. 
+Currently it's not supported to change the `DATA_REPLICATION` for an existing DB. 
 
 ## Adding Pods To A Cluster
 
@@ -241,12 +248,14 @@ This minimizes data transfers, but still distributes the load evenly.
 
 See [Option One DB License](LICENSE.md) 
 
+# Misc
+
 The plan is to release public docker container images quarterly.
 
-If you need 
-- direct priority support
-- **security updates** and **bug fixes** as soon as they are available
-- a version with **special features**
- - you plan to offer the Option One DB as a **hosted or managed service**?
+If you 
+- need direct priority support,
+- require **security updates** and **bug fixes** as soon as they are available,
+- want to have **special features**
+- plan to offer the Option One DB as a **hosted or managed service** (not allowed by default)
 
-Don't hesitate to contact me: admin at mh-svr.de
+don't hesitate to contact me: **admin at mh-svr.de** 
