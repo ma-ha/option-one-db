@@ -10,7 +10,7 @@ Option One DB is the next generation open source JSON document database with bui
 - Simple user and **API** access management
 - Built in **backup scheduler**
 - Integrated **GUI** for administration, monitoring and data management
-- Built in MCP-Server enables agents/prompts to query, retrieve or store data or can help to develop data-driven client applications
+- Built in **MCP-Server** enables agents/prompts to query, retrieve or store data or can help to develop data-driven client applications
 
 ![DB admin](screen-db-dark.png) 
 
